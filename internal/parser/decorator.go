@@ -137,6 +137,16 @@ func parseFieldDecorators(f *Field, body string, warn warnf) {
 		return
 	}
 
+	if strings.HasPrefix(body, "@startsWith=") {
+		applyStringConstraint(f, "@startsWith", strings.TrimSpace(strings.TrimPrefix(body, "@startsWith=")), warn)
+		return
+	}
+
+	if strings.HasPrefix(body, "@regex=") {
+		applyStringConstraint(f, "@regex", strings.TrimSpace(strings.TrimPrefix(body, "@regex=")), warn)
+		return
+	}
+
 	for _, tok := range splitDecoratorTokens(body) {
 		if !strings.HasPrefix(tok, "@") {
 			continue
@@ -197,4 +207,23 @@ func splitDecoratorTokens(body string) []string {
 	}
 
 	return tokens
+}
+
+func applyStringConstraint(f *Field, decorator, val string, warn warnf) {
+	if f.Kind != KindString && f.Kind != KindURL && f.Kind != KindEmail {
+		warn("%s is only supported for string-like types, ignoring for %q", decorator, f.Kind)
+		return
+	}
+
+	if val == "" {
+		warn("%s requires a non-empty value", decorator)
+		return
+	}
+
+	switch decorator {
+	case "@startsWith":
+		f.StartsWith = val
+	case "@regex":
+		f.Regex = val
+	}
 }

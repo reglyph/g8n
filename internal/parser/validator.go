@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -48,6 +49,30 @@ func validateDefault(f *Field) error {
 		}
 	default:
 		return fmt.Errorf("%s: unknown kind %d", ctx, f.Kind)
+	}
+
+	return nil
+}
+
+func validateConstraints(f *Field) error {
+	if f.HasRegex() {
+		if _, err := regexp.Compile(f.Key); err != nil {
+			return fmt.Errorf("line %d: variable %s: invalid @regex=%q: %w", f.Line, f.Key, f.Regex, err)
+		}
+	}
+
+	if !f.HasDefault {
+		return nil
+	}
+
+	if f.StartsWith != "" && !strings.HasPrefix(f.Default, f.StartsWith) {
+		return fmt.Errorf("line %d: variable %s: default %q does not start with %q", f.Line, f.Key, f.Default, f.StartsWith)
+	}
+
+	if f.HasRegex() {
+		if re, err := regexp.Compile(f.Regex); err == nil && !re.MatchString(f.Default) {
+			return fmt.Errorf("line %d: variable %s: default %q does not match @regex=%q", f.Line, f.Key, f.Default, f.Regex)
+		}
 	}
 
 	return nil

@@ -151,6 +151,10 @@ func ParseString(source, src string) (*Schema, error) {
 				return nil, err
 			}
 
+			if err := validateConstraints(f); err != nil {
+				return nil, err
+			}
+
 			s.Fields = append(s.Fields, f)
 		}
 	}
