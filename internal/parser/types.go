@@ -2,6 +2,18 @@ package parser
 
 type Kind = int
 
+const (
+	KindString Kind = iota
+	KindInt
+	KindInt64
+	KindBool
+	KindFloat64
+	KindPort
+	KindURL
+	KindEmail
+	KindEnum
+)
+
 type Field struct {
 	Key        string
 	Kind       Kind
@@ -14,10 +26,6 @@ type Field struct {
 	Regex      string
 	Docs       []string
 	Line       int
-}
-
-func (f *Field) HasRegex() bool {
-	return f.Regex != ""
 }
 
 type Schema struct {

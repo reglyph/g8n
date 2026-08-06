@@ -141,7 +141,15 @@ func ParseString(source, src string) (*Schema, error) {
 				continue
 			}
 
-			// todo: sensitive
+			if f.Sensitive && f.HasDefault {
+				appendWarning("variable %q sensitive and declares a default value", k)
+				f.HasDefault = false
+				f.Default = ""
+			}
+
+			if err := validateDefault(f); err != nil {
+				return nil, err
+			}
 
 			s.Fields = append(s.Fields, f)
 		}

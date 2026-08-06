@@ -4,6 +4,10 @@ import "strings"
 
 type warnf func(message string, args ...any)
 
+func (f *Field) HasRegex() bool {
+	return f.Regex != ""
+}
+
 func isComment(line string) bool {
 	return strings.HasPrefix(line, "#")
 }
@@ -79,9 +83,39 @@ func parseRootDecorators(s *Schema, body string, warn warnf) {
 			warn("@package required a value")
 		case strings.HasPrefix(tok, "@package="):
 			s.Package = strings.TrimSpace(strings.TrimPrefix(tok, "@package="))
-		case tok == "@out":
-			// todo: parse out path
+		case tok == "@out" || strings.HasPrefix(tok, "@out="):
+			parseOut(s, tok, warn)
 		}
+	}
+}
+
+func parseOut(s *Schema, tok string, warn warnf) {
+	inner := strings.TrimPrefix(tok, "@out")
+	inner = strings.TrimSpace(strings.TrimPrefix(inner, "("))
+	inner = strings.TrimSuffix(inner, ")")
+
+	if inner == "" {
+		warn("@out requires a path parameter, e.g. @out(path=internal/config/env.go)")
+		return
+	}
+
+	for _, param := range strings.Split(inner, ",") {
+		kv := strings.SplitN(strings.TrimSpace(param), "=", 2)
+
+		if len(kv) != 2 {
+			continue
+		}
+
+		switch strings.TrimSpace(kv[0]) {
+		case "path":
+			s.OutPath = strings.TrimSpace(kv[1])
+		case "package":
+			s.Package = strings.TrimSpace(kv[1])
+		}
+	}
+
+	if s.OutPath == "" {
+		warn("@out requires a path parameter, e.g. @out(path)")
 	}
 }
 
