@@ -11,5 +11,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%#v\n", s)
+	fmt.Printf("%+v\n", s)
+
+	for i, f := range s.Fields {
+		fmt.Printf("Fields[%d]: %+v\n", i, *f)
+	}
+
 }

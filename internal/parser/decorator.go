@@ -64,6 +64,8 @@ func applyCommentBlock(s *Schema, pending []string, f *Field, warn warnf) {
 		switch {
 		case isRootDecorator(body):
 			parseRootDecorators(s, body, warn)
+		case isDecorator(body):
+			parseFieldDecorators(f, body, warn)
 		default:
 			f.Docs = append(f.Docs, body)
 		}
@@ -79,6 +81,54 @@ func parseRootDecorators(s *Schema, body string, warn warnf) {
 			s.Package = strings.TrimSpace(strings.TrimPrefix(tok, "@package="))
 		case tok == "@out":
 			// todo: parse out path
+		}
+	}
+}
+
+func parseFieldDecorators(f *Field, body string, warn warnf) {
+	if strings.HasPrefix(body, "@docs=") {
+		if v := strings.TrimSpace(strings.TrimPrefix(body, "@docs=")); v != "" {
+			f.Docs = append(f.Docs, v)
+		}
+
+		return
+	}
+
+	if strings.HasPrefix(body, "@default=") {
+		if v := strings.TrimSpace(strings.TrimPrefix(body, "@default=")); v != "" {
+			f.Default = v
+			f.HasDefault = true
+		}
+
+		return
+	}
+
+	for _, tok := range splitDecoratorTokens(body) {
+		if !strings.HasPrefix(tok, "@") {
+			continue
+		}
+
+		name, arg := tok, ""
+		if i := strings.IndexByte(tok, '='); i >= 0 {
+			name, arg = tok[:i], tok[i+1:]
+		}
+
+		switch name {
+		case "@required":
+			f.Required = true
+		case "@sensitive":
+			f.Sensitive = true
+		case "@default":
+			if arg != "" {
+				f.Default = arg
+				f.HasDefault = true
+			}
+		case "@docs":
+			if arg != "" {
+				f.Docs = append(f.Docs, arg)
+			}
+		default:
+			warn("unknown decorator %s", name)
 		}
 	}
 }
