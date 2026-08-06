@@ -3,11 +3,66 @@ package parser
 import (
 	"bufio"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 )
 
 var varKeyRx = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)=(.*)$`)
+
+func ParseFiles(base string, overlays ...string) (*Schema, error) {
+	s, err := ParseFile(base)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, overlay := range overlays {
+		if overlay == "" {
+			continue
+		}
+
+		o, err := ParseFile(overlay)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+
+			return nil, err
+		}
+
+		Merge(s, o)
+		s.Warnings = append(s.Warnings, o.Warnings...)
+	}
+
+	return s, nil
+}
+
+func Merge(dst, src *Schema) {
+	for _, f := range src.Fields {
+		replaced := false
+
+		for i, exist := range dst.Fields {
+			if exist.Key == f.Key {
+				dst.Fields[i] = f
+				replaced = true
+				break
+			}
+		}
+
+		if !replaced {
+			dst.Fields = append(dst.Fields, f)
+		}
+	}
+}
+
+func ParseFile(path string) (*Schema, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return ParseString(path, string(data))
+}
 
 func ParseString(source, src string) (*Schema, error) {
 	s := &Schema{SourcePath: source}
@@ -35,6 +90,7 @@ func ParseString(source, src string) (*Schema, error) {
 	scanner := bufio.NewScanner(strings.NewReader(src))
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 
+	var pending []string
 	lineNo := 0
 
 	for scanner.Scan() {
@@ -45,7 +101,25 @@ func ParseString(source, src string) (*Schema, error) {
 		trimmed := strings.TrimSpace(raw)
 
 		switch {
-		// todo: comment & trimmed is nil
+		case trimmed == "":
+			pending = nil
+
+		case isComment(trimmed):
+			body := strings.TrimLeft(trimmed, "#")
+			body = strings.TrimSpace(body)
+
+			if isSeparator(body) {
+				pending = nil
+				continue
+			}
+
+			if isRootDecorator(body) {
+				parseRootDecorators(s, body, appendWarning)
+				continue
+			}
+
+			pending = append(pending, body)
+
 		default:
 			m := varKeyRx.FindStringSubmatch(trimmed)
 			if m == nil {
@@ -59,8 +133,10 @@ func ParseString(source, src string) (*Schema, error) {
 				f.HasDefault = true
 			}
 
+			applyCommentBlock(s, pending, f, appendWarning)
+			pending = nil
+
 			if prev := s.FieldByKey(k); prev != nil {
-				// todo: duplicate
 				appendWarning("var %q is already present on :%d", k, prev.Line)
 				continue
 			}

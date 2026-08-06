@@ -7,8 +7,7 @@ import (
 )
 
 func main() {
-	src := `KEY=VALUE`
-	s, err := parser.ParseString("test.schema", src)
+	s, err := parser.ParseFile(".env.schema")
 	if err != nil {
 		panic(err)
 	}
