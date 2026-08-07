@@ -2,53 +2,37 @@ package parser
 
 import (
 	"fmt"
-	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
+
+	"github.com/whoqmi/g8n/internal/spec"
 )
 
 func validateDefault(f *Field) error {
-	if !f.HasDefault || strings.Contains(f.Default, "${") {
+	if !f.HasDefault {
 		return nil
 	}
 
 	ctx := fmt.Sprintf("line %d: variable %s", f.Line, f.Key)
 
-	switch f.Kind {
-	case KindInt, KindPort:
-		n, err := strconv.Atoi(f.Default)
-
-		if err != nil {
-			return fmt.Errorf("%s: invalid default value %s for int: %w", ctx, f.Default, err)
+	if strings.Contains(f.Default, "${") {
+		if f.Kind.IsStringLike() {
+			return nil
 		}
 
-		if f.Kind == KindPort && (n < 1 || n > 65535) {
-			return fmt.Errorf("%s: invalid default value %s for port %d: %w", ctx, f.Default, n, err)
+		return fmt.Errorf("%s: default %q contains a ${...} reference, which is only supported for string-like types", ctx, f.Default)
+	}
+
+	if f.Kind == spec.KindEnum {
+		if f.Default != "" && !contains(f.Enum, f.Default) {
+			return fmt.Errorf("%s: default %q does not contain an enum reference", ctx, f.Default)
 		}
 
-	case KindInt64:
-		if _, err := strconv.ParseInt(f.Default, 10, 64); err != nil {
-			return fmt.Errorf("%s: invalid default value %s for int64: %w", ctx, f.Default, err)
-		}
-	case KindFloat64:
-		if _, err := strconv.ParseFloat(f.Default, 64); err != nil {
-			return fmt.Errorf("%s: invalid default value %s for float64: %w", ctx, f.Default, err)
-		}
-	case KindBool:
-		if _, err := strconv.ParseBool(f.Default); err != nil {
-			return fmt.Errorf("%s: invalid default value %s for bool: %w", ctx, f.Default, err)
-		}
-	case KindURL:
-		if _, err := url.ParseRequestURI(f.Default); err != nil {
-			return fmt.Errorf("%s: invalid default value %s for URL: %w", ctx, f.Default, err)
-		}
-	case KindEnum:
-		if f.Default != "" && !contains(f.Enum, f.Key) {
-			return fmt.Errorf("%s: invalid default value %s for enum: %v", ctx, f.Default, f.Enum)
-		}
-	default:
-		return fmt.Errorf("%s: unknown kind %d", ctx, f.Kind)
+		return nil
+	}
+
+	if err := f.Kind.ValidateLiteral(f.Default); err != nil {
+		return fmt.Errorf("%s: %w", ctx, err)
 	}
 
 	return nil
@@ -56,7 +40,7 @@ func validateDefault(f *Field) error {
 
 func validateConstraints(f *Field) error {
 	if f.HasRegex() {
-		if _, err := regexp.Compile(f.Key); err != nil {
+		if _, err := regexp.Compile(f.Regex); err != nil {
 			return fmt.Errorf("line %d: variable %s: invalid @regex=%q: %w", f.Line, f.Key, f.Regex, err)
 		}
 	}

@@ -74,8 +74,7 @@ func ParseString(source, src string) (*Schema, error) {
 		if source != "" {
 			location = " " + source
 		}
-
-		s.Warnings = append(s.Warnings, fmt.Sprintf("s%s:%d: %s", location, currentLine, fmt.Sprintf(msg, args...)))
+		s.Warnings = append(s.Warnings, fmt.Sprintf("envschema%s:%d: %s", location, currentLine, fmt.Sprintf(msg, args...)))
 	}
 
 	appendError := func(lineNo int, msg string, args ...any) error {
@@ -83,12 +82,11 @@ func ParseString(source, src string) (*Schema, error) {
 		if source != "" {
 			location = " " + source
 		}
-
-		return fmt.Errorf("s%s:%d: %s", location, lineNo, fmt.Sprintf(msg, args...))
+		return fmt.Errorf("schems%s:%d: %s", location, lineNo, fmt.Sprintf(msg, args...))
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(src))
-	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	var pending []string
 	lineNo := 0

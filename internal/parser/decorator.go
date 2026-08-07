@@ -1,6 +1,10 @@
 package parser
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/whoqmi/g8n/internal/spec"
+)
 
 type warnf func(message string, args ...any)
 
@@ -115,7 +119,7 @@ func parseOut(s *Schema, tok string, warn warnf) {
 	}
 
 	if s.OutPath == "" {
-		warn("@out requires a path parameter, e.g. @out(path)")
+		warn("@out requires a path parameter, e.g. @out(path=...)")
 	}
 }
 
@@ -144,6 +148,11 @@ func parseFieldDecorators(f *Field, body string, warn warnf) {
 
 	if strings.HasPrefix(body, "@regex=") {
 		applyStringConstraint(f, "@regex", strings.TrimSpace(strings.TrimPrefix(body, "@regex=")), warn)
+		return
+	}
+
+	if strings.HasPrefix(body, "@type=") && len(splitDecoratorTokens(body)) == 1 {
+		applyType(f, strings.TrimSpace(strings.TrimPrefix(body, "@type=")), warn)
 		return
 	}
 
@@ -209,8 +218,48 @@ func splitDecoratorTokens(body string) []string {
 	return tokens
 }
 
+func applyType(f *Field, arg string, warn warnf) {
+	name, opts := arg, ""
+
+	if i := strings.IndexByte(arg, '('); i >= 0 {
+		if !strings.HasSuffix(arg, ")") {
+			warn("@type=%q, expected closing ')'", arg)
+			return
+		}
+
+		name, opts = arg[:1], arg[i+1:len(arg)-1]
+	}
+
+	kind, known := spec.ParseKind(name)
+
+	if !known {
+		warn("unknown @type=%q, falling back to string", name)
+	}
+	f.Kind = kind
+
+	if kind == spec.KindEnum {
+		f.Enum = nil
+
+		for _, part := range strings.Split(name, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				f.Enum = append(f.Enum, part)
+			}
+		}
+
+		if len(f.Enum) == 0 {
+			warn("@type=enum(...) requires a comma-separated list of values")
+		}
+
+		return
+	}
+
+	if opts != "" {
+		// todo: apply options
+	}
+}
+
 func applyStringConstraint(f *Field, decorator, val string, warn warnf) {
-	if f.Kind != KindString && f.Kind != KindURL && f.Kind != KindEmail {
+	if !f.Kind.IsConstrainable() {
 		warn("%s is only supported for string-like types, ignoring for %q", decorator, f.Kind)
 		return
 	}

@@ -1,22 +1,10 @@
 package parser
 
-type Kind = int
-
-const (
-	KindString Kind = iota
-	KindInt
-	KindInt64
-	KindBool
-	KindFloat64
-	KindPort
-	KindURL
-	KindEmail
-	KindEnum
-)
+import "github.com/whoqmi/g8n/internal/spec"
 
 type Field struct {
 	Key        string
-	Kind       Kind
+	Kind       spec.Kind
 	Required   bool
 	Sensitive  bool
 	HasDefault bool
