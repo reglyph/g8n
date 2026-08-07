@@ -3,6 +3,7 @@ package spec
 import (
 	"fmt"
 	"math"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -137,6 +138,13 @@ func (k Kind) ValidateLiteral(s string) error {
 		}
 		if math.IsNaN(v) || math.IsInf(v, 0) {
 			return fmt.Errorf("invalid default %q for type float64: NaN and Infinity are not allowed", s)
+		}
+
+		return nil
+
+	case KindURL:
+		if _, err := url.ParseRequestURI(s); err != nil {
+			return fmt.Errorf("invalid default %q for type url: %w", s, err)
 		}
 
 		return nil

@@ -87,7 +87,7 @@ func parseRootDecorators(s *Schema, body string, warn warnf) {
 			warn("@package required a value")
 		case strings.HasPrefix(tok, "@package="):
 			s.Package = strings.TrimSpace(strings.TrimPrefix(tok, "@package="))
-		case tok == "@out" || strings.HasPrefix(tok, "@out="):
+		case tok == "@out" || strings.HasPrefix(tok, "@out("):
 			parseOut(s, tok, warn)
 		}
 	}
@@ -167,6 +167,8 @@ func parseFieldDecorators(f *Field, body string, warn warnf) {
 		}
 
 		switch name {
+		case "@type":
+			applyType(f, arg, warn)
 		case "@required":
 			f.Required = true
 		case "@sensitive":
@@ -200,8 +202,9 @@ func splitDecoratorTokens(body string) []string {
 			if depth > 0 {
 				depth--
 			}
-			cur.WriteRune(')')
-		case (r == ' ' || r == '\t' || r == '\n' || r == '\r') && depth == 0:
+			cur.WriteRune(r)
+
+		case (r == ' ' || r == '\t' || r == '\r' || r == '\n') && depth == 0:
 			if cur.Len() > 0 {
 				tokens = append(tokens, cur.String())
 				cur.Reset()
