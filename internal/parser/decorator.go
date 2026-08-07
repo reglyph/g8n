@@ -227,7 +227,7 @@ func applyType(f *Field, arg string, warn warnf) {
 			return
 		}
 
-		name, opts = arg[:1], arg[i+1:len(arg)-1]
+		name, opts = arg[:i], arg[i+1:len(arg)-1]
 	}
 
 	kind, known := spec.ParseKind(name)

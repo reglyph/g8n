@@ -82,7 +82,7 @@ func ParseString(source, src string) (*Schema, error) {
 		if source != "" {
 			location = " " + source
 		}
-		return fmt.Errorf("schems%s:%d: %s", location, lineNo, fmt.Sprintf(msg, args...))
+		return fmt.Errorf("envschema%s:%d: %s", location, lineNo, fmt.Sprintf(msg, args...))
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(src))
