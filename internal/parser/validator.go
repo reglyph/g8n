@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/whoqmi/g8n/internal/spec"
@@ -24,7 +25,7 @@ func validateDefault(f *Field) error {
 	}
 
 	if f.Kind == spec.KindEnum {
-		if f.Default != "" && !contains(f.Enum, f.Default) {
+		if f.Default != "" && !slices.Contains(f.Enum, f.Default) {
 			return fmt.Errorf("%s: default %q does not contain an enum reference", ctx, f.Default)
 		}
 
@@ -60,14 +61,4 @@ func validateConstraints(f *Field) error {
 	}
 
 	return nil
-}
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-
-	return false
 }

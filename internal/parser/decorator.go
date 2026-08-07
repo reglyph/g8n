@@ -240,7 +240,7 @@ func applyType(f *Field, arg string, warn warnf) {
 	if kind == spec.KindEnum {
 		f.Enum = nil
 
-		for _, part := range strings.Split(name, ",") {
+		for _, part := range strings.Split(opts, ",") {
 			if part = strings.TrimSpace(part); part != "" {
 				f.Enum = append(f.Enum, part)
 			}
@@ -254,7 +254,51 @@ func applyType(f *Field, arg string, warn warnf) {
 	}
 
 	if opts != "" {
-		// todo: apply options
+		applyTypeOptions(f, opts, warn)
+	}
+}
+
+func applyTypeOptions(f *Field, options string, warn warnf) {
+	for _, opt := range strings.Split(options, ",") {
+		kv := strings.SplitN(strings.TrimSpace(opt), "=", 2)
+
+		if len(kv) != 2 {
+			warn("ignoring unsupported @type option %q", strings.TrimSpace(opt))
+			continue
+		}
+
+		k, v := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+
+		switch k {
+		case "startsWith":
+			if !f.Kind.IsConstrainable() {
+				warn("startsWith is only supported for string-like types, ignoring for %q", f.Kind)
+				continue
+			}
+
+			if v == "" {
+				warn("startsWith requires a non-empty value")
+				continue
+			}
+
+			f.StartsWith = v
+
+		case "regex":
+			if !f.Kind.IsConstrainable() {
+				warn("regex is only supported for string-like types, ignoring for %q", f.Kind)
+				continue
+			}
+
+			if v == "" {
+				warn("regex requires a non-empty value")
+				continue
+			}
+
+			f.Regex = v
+
+		default:
+			warn("unknown @type option %q", k)
+		}
 	}
 }
 
