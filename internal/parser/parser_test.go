@@ -1,15 +1,15 @@
 package parser
 
 import (
-	"github.com/whoqmi/g8n/internal/spec"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/whoqmi/g8n/internal/spec"
 )
 
-func TestParseBasic(t *testing.T) {
-	src := `# @package=config
+const basicSchemaSrc = `# @package=config
 # @out(path=internal/config/config.go)
 
 # Host of the database
@@ -33,10 +33,9 @@ LIMIT=67
 # @docs=a documentation link
 SITE=https://whoqmi.me/
 `
-	s, err := ParseString("", src)
-	if err != nil {
-		t.Fatalf("ParseString: %v", err)
-	}
+
+func TestParseBasic(t *testing.T) {
+	s := mustParseBasic(t)
 
 	if s.Package != "config" {
 		t.Errorf("Package = %q, want config", s.Package)
@@ -50,68 +49,67 @@ SITE=https://whoqmi.me/
 		t.Fatalf("got %d fields, want 6", got)
 	}
 
-	db := s.FieldByKey("DB_HOST")
-	if db == nil {
-		t.Fatal("DB_HOST missing")
-	}
-
-	if db.Kind != spec.KindString {
-		t.Errorf("DB_HOST kind = %v, want string", db.Kind)
-	}
-
-	if !db.Required {
-		t.Error("DB_HOST should be required")
-	}
-
+	db := assertField(t, s, "DB_HOST", spec.KindString, "db", true)
 	if db.Sensitive {
 		t.Error("DB_HOST should not be sensitive")
-	}
-
-	if !db.HasDefault || db.Default != "db" {
-		t.Errorf("DB_HOST default = (has=%v,val=%q), want db", db.HasDefault, db.Default)
 	}
 
 	if len(db.Docs) != 1 || db.Docs[0] != "Host of the database" {
 		t.Errorf("DB_HOST docs = %v", db.Docs)
 	}
 
-	port := s.FieldByKey("DB_PORT")
-	if port.Kind != spec.KindPort {
-		t.Errorf("DB_PORT kind = %v, want port", port.Kind)
-	}
+	assertField(t, s, "DB_PORT", spec.KindPort, "8080", false)
 
-	env := s.FieldByKey("APP_ENV")
-	if env.Kind != spec.KindEnum {
-		t.Errorf("APP_ENV kind = %v, want enum", env.Kind)
-	}
-
+	env := assertField(t, s, "APP_ENV", spec.KindEnum, "dev", false)
 	if len(env.Enum) != 3 || env.Enum[1] != "staging" {
 		t.Errorf("APP_ENV enum values = %v", env.Enum)
 	}
 
-	feat := s.FieldByKey("FEATURE")
-	if feat.Kind != spec.KindBool || feat.Default != "false" {
-		t.Errorf("FEATURE = kind %v default %q", feat.Kind, feat.Default)
-	}
+	assertField(t, s, "FEATURE", spec.KindBool, "false", false)
+	assertField(t, s, "LIMIT", spec.KindInt64, "67", false)
 
-	limit := s.FieldByKey("LIMIT")
-	if limit.Kind != spec.KindInt64 {
-		t.Errorf("LIMIT kind = %v, want int64", limit.Kind)
-	}
-
-	site := s.FieldByKey("SITE")
-	if site.Kind != spec.KindURL {
-		t.Errorf("SITE kind = %v, want url", site.Kind)
-	}
-
+	site := assertField(t, s, "SITE", spec.KindURL, "https://whoqmi.me/", false)
 	if len(site.Docs) != 1 || site.Docs[0] != "a documentation link" {
 		t.Errorf("SITE docs = %v", site.Docs)
 	}
 }
 
+func mustParseBasic(t *testing.T) *Schema {
+	t.Helper()
+
+	s, err := ParseString("", basicSchemaSrc)
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+
+	return s
+}
+
+func assertField(t *testing.T, s *Schema, key string, kind spec.Kind, wantDefault string, wantRequired bool) *Field {
+	t.Helper()
+
+	f := s.FieldByKey(key)
+	if f == nil {
+		t.Fatalf("%s missing", key)
+	}
+
+	if f.Kind != kind {
+		t.Errorf("%s kind = %v, want %v", key, f.Kind, kind)
+	}
+
+	if f.Default != wantDefault {
+		t.Errorf("%s default = %q, want %q", key, f.Default, wantDefault)
+	}
+
+	if f.Required != wantRequired {
+		t.Errorf("%s required = %v, want %v", key, f.Required, wantRequired)
+	}
+
+	return f
+}
+
 func TestParseEmpty(t *testing.T) {
 	s, err := ParseString("", "")
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +129,6 @@ func TestParseInvalidLine(t *testing.T) {
 
 func TestParseDuplicateLine(t *testing.T) {
 	s, err := ParseString("", "A=1\nA=2")
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +198,6 @@ func TestParseRejectsVariableReferences(t *testing.T) {
 
 func TestParseDecoratorWithEqualsInValue(t *testing.T) {
 	s, err := ParseString("", "W=jwt=algo\n")
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +209,6 @@ func TestParseDecoratorWithEqualsInValue(t *testing.T) {
 
 func TestParseConstraintOptions(t *testing.T) {
 	s, err := ParseString("", "# @type=string(startsWith=sk-, regex=^[a-z0-9]+$)\nK=\n")
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +233,6 @@ func TestParseConstraintOptions(t *testing.T) {
 
 func TestParseStandaloneConstraintDecorators(t *testing.T) {
 	s, err := ParseString("", "# @startsWith=sk-\n# @regex=^[a-z]+\nK=\n")
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +246,6 @@ func TestParseStandaloneConstraintDecorators(t *testing.T) {
 
 func TestParseTypeWithParenthesizedDocsOnSameLine(t *testing.T) {
 	s, err := ParseString("", "# @type=url @docs=(see docs)\nK=https://whoqmi.me/\n")
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +263,6 @@ func TestParseTypeWithParenthesizedDocsOnSameLine(t *testing.T) {
 
 func TestParseInvalidRegexError(t *testing.T) {
 	_, err := ParseString("", "# @regex=(^[a-\nK=\n")
-
 	if err == nil {
 		t.Fatal("expected error for invalid regex")
 	}
@@ -295,7 +287,6 @@ func TestParseConstraintDefaultValidation(t *testing.T) {
 
 func TestParseConstraintOnNonStringType(t *testing.T) {
 	s, err := ParseString("c", "# @type=port(startsWith=1)\nP=\n")
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +306,7 @@ func TestParseFilesMerge(t *testing.T) {
 		t.Helper()
 
 		path := filepath.Join(dir, name)
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 
@@ -353,7 +344,8 @@ func TestParseFilesMerge(t *testing.T) {
 func TestParseFilesMissingOverlaySkipped(t *testing.T) {
 	dir := t.TempDir()
 	base := filepath.Join(dir, "base.env.schema")
-	if err := os.WriteFile(base, []byte("A=1\n"), 0o644); err != nil {
+
+	if err := os.WriteFile(base, []byte("A=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -393,6 +385,7 @@ func TestParseSensitiveDefaultNotEmbedded(t *testing.T) {
 	}
 
 	found := false
+
 	for _, w := range s.Warnings {
 		if strings.Contains(w, "sensitive and declares") {
 			found = true
@@ -406,8 +399,8 @@ func TestParseSensitiveDefaultNotEmbedded(t *testing.T) {
 
 func TestSeparatorResetsDocumentation(t *testing.T) {
 	src := "# hi!!!\n# ---\n# attached\nX=1\n"
-	s, err := ParseString("", src)
 
+	s, err := ParseString("", src)
 	if err != nil {
 		t.Fatal(err)
 	}

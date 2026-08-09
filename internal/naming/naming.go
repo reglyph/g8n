@@ -5,8 +5,10 @@ import (
 	"unicode"
 )
 
+// GoFieldName converts an env key into a Go identifier (CamelCase).
 func GoFieldName(key string) string {
 	var b strings.Builder
+
 	var part []rune
 
 	flush := func() {
@@ -35,5 +37,6 @@ func GoFieldName(key string) string {
 	}
 
 	flush()
+
 	return b.String()
 }

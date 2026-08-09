@@ -2,6 +2,7 @@ package parser
 
 import "github.com/whoqmi/g8n/internal/spec"
 
+// Field describes one environment variable declared in the schema.
 type Field struct {
 	Key        string
 	Kind       spec.Kind
@@ -16,6 +17,7 @@ type Field struct {
 	Line       int
 }
 
+// Schema is the parsed representation of an .env.schema file.
 type Schema struct {
 	Package    string
 	OutPath    string
@@ -24,6 +26,7 @@ type Schema struct {
 	Warnings   []string
 }
 
+// FieldByKey returns the field with the given key, or nil.
 func (s *Schema) FieldByKey(key string) *Field {
 	for _, f := range s.Fields {
 		if f.Key == key {

@@ -8,13 +8,19 @@ import (
 	"strings"
 )
 
+// Port bounds for the port variable kind.
 const (
 	PortMin = 1
 	PortMax = 65535
 )
 
+// int64BitSize is the bit size used when parsing int64 literals.
+const int64BitSize = 64
+
+// Kind identifies a supported variable type.
 type Kind int
 
+// Supported variable kinds.
 const (
 	KindString Kind = iota
 	KindInt
@@ -27,6 +33,7 @@ const (
 	KindEnum
 )
 
+// Spec describes the static properties of a variable kind.
 type Spec struct {
 	Name          string
 	GoType        string
@@ -36,6 +43,7 @@ type Spec struct {
 	Constrainable bool
 }
 
+// Spec returns the static description of the kind.
 func (k Kind) Spec() Spec {
 	switch k {
 	case KindInt:
@@ -63,6 +71,7 @@ func (k Kind) String() string {
 	return k.Spec().Name
 }
 
+// ParseKind resolves a type name to a Kind and reports whether the name is known.
 func ParseKind(name string) (Kind, bool) {
 	switch name {
 	case "string":
@@ -88,18 +97,22 @@ func ParseKind(name string) (Kind, bool) {
 	}
 }
 
+// IsStringLike reports whether the kind is a string-like type.
 func (k Kind) IsStringLike() bool {
 	return k.Spec().StringLike
 }
 
+// IsConstrainable reports whether the kind accepts prefix and regex constraints.
 func (k Kind) IsConstrainable() bool {
 	return k.Spec().Constrainable
 }
 
+// IsPort reports whether the kind is a TCP port.
 func (k Kind) IsPort() bool {
 	return k == KindPort
 }
 
+// IsValidEmail reports whether s looks like an email address.
 func IsValidEmail(s string) bool {
 	at := strings.IndexByte(s, '@')
 	dot := strings.LastIndexByte(s, '.')
@@ -107,67 +120,81 @@ func IsValidEmail(s string) bool {
 	return at > 0 && dot > at+1
 }
 
+// ValidateLiteral checks that s is a valid literal of the kind.
 func (k Kind) ValidateLiteral(s string) error {
 	switch k {
 	case KindInt:
-		if _, err := strconv.ParseInt(s, 10, 0); err != nil {
-			return fmt.Errorf("invalid default %q for type int: %w", s, err)
-		}
-
-		return nil
-
+		return parseSignedInt(s, "int", 0)
 	case KindInt64:
-		if _, err := strconv.ParseInt(s, 10, 64); err != nil {
-			return fmt.Errorf("invalid default %q for type int64: %w", s, err)
-		}
-
-		return nil
-
-	case KindBool:
-		if _, err := strconv.ParseBool(s); err != nil {
-			return fmt.Errorf("invalid default %q for type bool: %w", s, err)
-		}
-
-		return nil
-
-	case KindFloat64:
-		v, err := strconv.ParseFloat(s, 64)
-
-		if err != nil {
-			return fmt.Errorf("invalid default %q for type float64: %w", s, err)
-		}
-		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return fmt.Errorf("invalid default %q for type float64: NaN and Infinity are not allowed", s)
-		}
-
-		return nil
-
-	case KindURL:
-		if _, err := url.ParseRequestURI(s); err != nil {
-			return fmt.Errorf("invalid default %q for type url: %w", s, err)
-		}
-
-		return nil
-
+		return parseSignedInt(s, "int64", int64BitSize)
 	case KindPort:
-		n, err := strconv.ParseInt(s, 10, 0)
-
-		if err != nil {
-			return fmt.Errorf("invalid default %q for type port: %w", s, err)
-		}
-		if n < PortMin || n > PortMax {
-			return fmt.Errorf("invalid default %q for type port: %d out of range", s, n)
-		}
-
-		return nil
-
+		return parsePort(s)
+	case KindBool:
+		return parseBoolLiteral(s)
+	case KindFloat64:
+		return parseFloatLiteral(s)
+	case KindURL:
+		return parseURLLiteral(s)
 	case KindEmail:
-		if !IsValidEmail(s) {
-			return fmt.Errorf("invalid default %q for type email: value is not a valid email", s)
-		}
-
+		return parseEmailLiteral(s)
 	default:
 		return nil
+	}
+}
+
+func parseSignedInt(s, typ string, bits int) error {
+	if _, err := strconv.ParseInt(s, 10, bits); err != nil {
+		return fmt.Errorf("invalid default %q for type %s: %w", s, typ, err)
+	}
+
+	return nil
+}
+
+func parsePort(s string) error {
+	n, err := strconv.ParseInt(s, 10, 0)
+	if err != nil {
+		return fmt.Errorf("invalid default %q for type port: %w", s, err)
+	}
+
+	if n < PortMin || n > PortMax {
+		return fmt.Errorf("invalid default %q for type port: %d out of range", s, n)
+	}
+
+	return nil
+}
+
+func parseBoolLiteral(s string) error {
+	if _, err := strconv.ParseBool(s); err != nil {
+		return fmt.Errorf("invalid default %q for type bool: %w", s, err)
+	}
+
+	return nil
+}
+
+func parseFloatLiteral(s string) error {
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return fmt.Errorf("invalid default %q for type float64: %w", s, err)
+	}
+
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return fmt.Errorf("invalid default %q for type float64: NaN and Infinity are not allowed", s)
+	}
+
+	return nil
+}
+
+func parseURLLiteral(s string) error {
+	if _, err := url.ParseRequestURI(s); err != nil {
+		return fmt.Errorf("invalid default %q for type url: %w", s, err)
+	}
+
+	return nil
+}
+
+func parseEmailLiteral(s string) error {
+	if !IsValidEmail(s) {
+		return fmt.Errorf("invalid default %q for type email: value is not a valid email", s)
 	}
 
 	return nil

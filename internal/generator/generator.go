@@ -19,8 +19,10 @@ var reservedFieldNames = map[string]string{
 	"ExpandVars":    "ExpandVarsValue",
 }
 
+// Generate renders the schema as a formatted Go source file.
 func Generate(s *parser.Schema) ([]byte, error) {
 	g := &gen{schema: s}
+
 	src, err := g.build()
 	if err != nil {
 		return nil, err
@@ -48,8 +50,8 @@ func (p *printer) line(s string) {
 	p.buf.WriteByte('\n')
 }
 
-func (p *printer) linef(format string, args ...any) {
-	p.line(fmt.Sprintf(format, args...))
+func (p *printer) linef(f string, args ...any) {
+	p.line(fmt.Sprintf(f, args...))
 }
 
 func (p *printer) blank() {
@@ -129,6 +131,7 @@ func (g *gen) computeUses() {
 	g.uses = map[string]bool{"os": true, "strings": true}
 
 	for _, f := range g.schema.Fields {
+		//goland:noinspection GoSwitchMissingCasesForIotaConsts
 		switch f.Kind {
 		case spec.KindInt, spec.KindInt64, spec.KindBool, spec.KindFloat64, spec.KindPort:
 			g.uses["strconv"] = true

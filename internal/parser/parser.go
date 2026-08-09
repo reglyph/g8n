@@ -10,6 +10,13 @@ import (
 
 var varKeyRx = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)=(.*)$`)
 
+const (
+	scannerInitialBufferSize = 64 * 1024
+	scannerMaxTokenSize      = 1024 * 1024
+)
+
+// ParseFiles parses the base schema and merges the given overlay files on top of it.
+// Missing overlay files are silently skipped.
 func ParseFiles(base string, overlays ...string) (*Schema, error) {
 	s, err := ParseFile(base)
 	if err != nil {
@@ -37,6 +44,7 @@ func ParseFiles(base string, overlays ...string) (*Schema, error) {
 	return s, nil
 }
 
+// Merge applies the fields of src on top of dst, replacing matching keys.
 func Merge(dst, src *Schema) {
 	for _, f := range src.Fields {
 		replaced := false
@@ -45,6 +53,7 @@ func Merge(dst, src *Schema) {
 			if exist.Key == f.Key {
 				dst.Fields[i] = f
 				replaced = true
+
 				break
 			}
 		}
@@ -55,7 +64,9 @@ func Merge(dst, src *Schema) {
 	}
 }
 
+// ParseFile parses the schema file at the given path.
 func ParseFile(path string) (*Schema, error) {
+	// #nosec G304 -- path is provided by the caller
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -64,6 +75,8 @@ func ParseFile(path string) (*Schema, error) {
 	return ParseString(path, string(data))
 }
 
+// ParseString parses the given schema source. source is only used for
+// error and warning messages and may be empty.
 func ParseString(source, src string) (*Schema, error) {
 	s := &Schema{SourcePath: source}
 
@@ -74,6 +87,7 @@ func ParseString(source, src string) (*Schema, error) {
 		if source != "" {
 			location = " " + source
 		}
+
 		s.Warnings = append(s.Warnings, fmt.Sprintf("envschema%s:%d: %s", location, currentLine, fmt.Sprintf(msg, args...)))
 	}
 
@@ -82,13 +96,15 @@ func ParseString(source, src string) (*Schema, error) {
 		if source != "" {
 			location = " " + source
 		}
+
 		return fmt.Errorf("envschema%s:%d: %s", location, lineNo, fmt.Sprintf(msg, args...))
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(src))
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, scannerInitialBufferSize), scannerMaxTokenSize)
 
 	var pending []string
+
 	lineNo := 0
 
 	for scanner.Scan() {
@@ -100,14 +116,14 @@ func ParseString(source, src string) (*Schema, error) {
 
 		switch {
 		case trimmed == "":
-			pending = nil
+			pending = pending[:0]
 
 		case isComment(trimmed):
 			body := strings.TrimLeft(trimmed, "#")
 			body = strings.TrimSpace(body)
 
 			if isSeparator(body) {
-				pending = nil
+				pending = pending[:0]
 				continue
 			}
 
@@ -119,41 +135,11 @@ func ParseString(source, src string) (*Schema, error) {
 			pending = append(pending, body)
 
 		default:
-			m := varKeyRx.FindStringSubmatch(trimmed)
-			if m == nil {
-				return nil, appendError(lineNo, "expected KEY=VALUE, got %q", trimmed)
-			}
-
-			k, v := m[1], m[2]
-			f := &Field{Key: k, Default: v, Line: lineNo}
-
-			if v != "" {
-				f.HasDefault = true
-			}
-
-			applyCommentBlock(s, pending, f, appendWarning)
-			pending = nil
-
-			if prev := s.FieldByKey(k); prev != nil {
-				appendWarning("var %q is already present on :%d", k, prev.Line)
-				continue
-			}
-
-			if f.Sensitive && f.HasDefault {
-				appendWarning("variable %q sensitive and declares a default value", k)
-				f.HasDefault = false
-				f.Default = ""
-			}
-
-			if err := validateDefault(f); err != nil {
+			if err := parseFieldLine(s, pending, trimmed, lineNo, appendWarning, appendError); err != nil {
 				return nil, err
 			}
 
-			if err := validateConstraints(f); err != nil {
-				return nil, err
-			}
-
-			s.Fields = append(s.Fields, f)
+			pending = pending[:0]
 		}
 	}
 
@@ -162,4 +148,44 @@ func ParseString(source, src string) (*Schema, error) {
 	}
 
 	return s, nil
+}
+
+func parseFieldLine(s *Schema, pending []string, line string, lineNo int, warn warnf, fail func(int, string, ...any) error) error {
+	m := varKeyRx.FindStringSubmatch(line)
+	if m == nil {
+		return fail(lineNo, "expected KEY=VALUE, got %q", line)
+	}
+
+	k, v := m[1], m[2]
+	f := &Field{Key: k, Default: v, Line: lineNo}
+
+	if v != "" {
+		f.HasDefault = true
+	}
+
+	applyCommentBlock(s, pending, f, warn)
+
+	if prev := s.FieldByKey(k); prev != nil {
+		warn("var %q is already present on :%d", k, prev.Line)
+		return nil
+	}
+
+	if f.Sensitive && f.HasDefault {
+		warn("variable %q sensitive and declares a default value", k)
+
+		f.HasDefault = false
+		f.Default = ""
+	}
+
+	if err := validateDefault(f); err != nil {
+		return err
+	}
+
+	if err := validateConstraints(f); err != nil {
+		return err
+	}
+
+	s.Fields = append(s.Fields, f)
+
+	return nil
 }

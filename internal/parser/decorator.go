@@ -8,6 +8,7 @@ import (
 
 type warnf func(message string, args ...any)
 
+// HasRegex reports whether the field declares a regex constraint.
 func (f *Field) HasRegex() bool {
 	return f.Regex != ""
 }
@@ -124,35 +125,7 @@ func parseOut(s *Schema, tok string, warn warnf) {
 }
 
 func parseFieldDecorators(f *Field, body string, warn warnf) {
-	if strings.HasPrefix(body, "@docs=") {
-		if v := strings.TrimSpace(strings.TrimPrefix(body, "@docs=")); v != "" {
-			f.Docs = append(f.Docs, v)
-		}
-
-		return
-	}
-
-	if strings.HasPrefix(body, "@default=") {
-		if v := strings.TrimSpace(strings.TrimPrefix(body, "@default=")); v != "" {
-			f.Default = v
-			f.HasDefault = true
-		}
-
-		return
-	}
-
-	if strings.HasPrefix(body, "@startsWith=") {
-		applyStringConstraint(f, "@startsWith", strings.TrimSpace(strings.TrimPrefix(body, "@startsWith=")), warn)
-		return
-	}
-
-	if strings.HasPrefix(body, "@regex=") {
-		applyStringConstraint(f, "@regex", strings.TrimSpace(strings.TrimPrefix(body, "@regex=")), warn)
-		return
-	}
-
-	if strings.HasPrefix(body, "@type=") && len(splitDecoratorTokens(body)) == 1 {
-		applyType(f, strings.TrimSpace(strings.TrimPrefix(body, "@type=")), warn)
+	if parseSingleDecorator(f, body, warn) {
 		return
 	}
 
@@ -188,20 +161,62 @@ func parseFieldDecorators(f *Field, body string, warn warnf) {
 	}
 }
 
+// parseSingleDecorator handles decorators that take the whole line as their
+// argument. It reports whether the body was fully consumed.
+func parseSingleDecorator(f *Field, body string, warn warnf) bool {
+	if strings.HasPrefix(body, "@docs=") {
+		if v := strings.TrimSpace(strings.TrimPrefix(body, "@docs=")); v != "" {
+			f.Docs = append(f.Docs, v)
+		}
+
+		return true
+	}
+
+	if strings.HasPrefix(body, "@default=") {
+		if v := strings.TrimSpace(strings.TrimPrefix(body, "@default=")); v != "" {
+			f.Default = v
+			f.HasDefault = true
+		}
+
+		return true
+	}
+
+	if strings.HasPrefix(body, "@startsWith=") {
+		applyStringConstraint(f, "@startsWith", strings.TrimSpace(strings.TrimPrefix(body, "@startsWith=")), warn)
+		return true
+	}
+
+	if strings.HasPrefix(body, "@regex=") {
+		applyStringConstraint(f, "@regex", strings.TrimSpace(strings.TrimPrefix(body, "@regex=")), warn)
+		return true
+	}
+
+	if strings.HasPrefix(body, "@type=") && len(splitDecoratorTokens(body)) == 1 {
+		applyType(f, strings.TrimSpace(strings.TrimPrefix(body, "@type=")), warn)
+		return true
+	}
+
+	return false
+}
+
 func splitDecoratorTokens(body string) []string {
 	var tokens []string
+
 	var cur strings.Builder
+
 	depth := 0
 
 	for _, r := range body {
 		switch {
 		case r == '(':
 			depth++
+
 			cur.WriteRune(r)
 		case r == ')':
 			if depth > 0 {
 				depth--
 			}
+
 			cur.WriteRune(r)
 
 		case (r == ' ' || r == '\t' || r == '\r' || r == '\n') && depth == 0:
@@ -238,6 +253,7 @@ func applyType(f *Field, arg string, warn warnf) {
 	if !known {
 		warn("unknown @type=%q, falling back to string", name)
 	}
+
 	f.Kind = kind
 
 	if kind == spec.KindEnum {

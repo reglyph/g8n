@@ -4,19 +4,26 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/whoqmi/g8n/internal/generator"
-	"github.com/whoqmi/g8n/internal/jsonschema"
-	"github.com/whoqmi/g8n/internal/parser"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/whoqmi/g8n/internal/generator"
+	"github.com/whoqmi/g8n/internal/jsonschema"
+	"github.com/whoqmi/g8n/internal/parser"
 )
 
 var ver = "0.0.1"
 var pkgNameRx = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+const (
+	dirPerm  = 0o755
+	filePerm = 0o644
+)
+
 func emit(w io.Writer, format string, args ...any) {
+	//nolint:errcheck // writing to stdout/stderr is best-effort
 	_, _ = fmt.Fprintf(w, format, args...)
 }
 
@@ -73,6 +80,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 func overlayFiles(schemaPath, env string) []string {
 	dir := filepath.Dir(schemaPath)
+
 	var files []string
 
 	files = append(files, filepath.Join(dir, ".env.local"))
@@ -97,31 +105,13 @@ func generate(schemaPath, outPath, pkgName, envName, jsonOut string, force, dryR
 		return generateJSONSchema(schema, jsonOut, dryRun, stdout, stderr)
 	}
 
-	if pkgName == "" {
-		pkgName = schema.Package
-	}
-
-	if outPath == "" {
-		outPath = schema.OutPath
-
-		if outPath != "" {
-			outPath = resolveRelative(filepath.Dir(schemaPath), outPath)
-		}
-	}
-
-	if outPath == "" {
-		return fmt.Errorf("no out path: pass -out or declare @out(path=...) in %s", schemaPath)
-	}
-
-	if pkgName == "" {
-		pkgName = basePackageName(outPath)
-	}
-
-	if !pkgNameRx.MatchString(pkgName) {
-		return fmt.Errorf("invalid Go package name %q", pkgName)
+	pkgName, outPath, err = resolveOutputs(schemaPath, schema, pkgName, outPath)
+	if err != nil {
+		return err
 	}
 
 	schema.Package = pkgName
+
 	src, err := generator.Generate(schema)
 	if err != nil {
 		return fmt.Errorf("generate %s: %w", outPath, err)
@@ -133,6 +123,39 @@ func generate(schemaPath, outPath, pkgName, envName, jsonOut string, force, dryR
 		return err
 	}
 
+	return writeIfChanged(outPath, src, force, stderr)
+}
+
+func resolveOutputs(schemaPath string, schema *parser.Schema, pkg, outPath string) (pkgName, out string, err error) {
+	if pkg == "" {
+		pkg = schema.Package
+	}
+
+	if outPath == "" {
+		outPath = schema.OutPath
+
+		if outPath != "" {
+			outPath = resolveRelative(filepath.Dir(schemaPath), outPath)
+		}
+	}
+
+	if outPath == "" {
+		return "", "", fmt.Errorf("no out path: pass -out or declare @out(path=...) in %s", schemaPath)
+	}
+
+	if pkg == "" {
+		pkg = basePackageName(outPath)
+	}
+
+	if !pkgNameRx.MatchString(pkg) {
+		return "", "", fmt.Errorf("invalid Go package name %q", pkg)
+	}
+
+	return pkg, outPath, nil
+}
+
+func writeIfChanged(outPath string, src []byte, force bool, stderr io.Writer) error {
+	// #nosec G304 -- outPath is the user-provided -out flag
 	existing, rerr := os.ReadFile(outPath)
 	identical := rerr == nil && string(existing) == string(src)
 
@@ -143,12 +166,14 @@ func generate(schemaPath, outPath, pkgName, envName, jsonOut string, force, dryR
 	}
 
 	if dir := filepath.Dir(outPath); dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		// #nosec G301 -- directories are created in the user's repo with standard permissions
+		if err := os.MkdirAll(dir, dirPerm); err != nil {
 			return fmt.Errorf("mkdir %s: %w", dir, err)
 		}
 	}
 
-	if err := os.WriteFile(outPath, src, 0o644); err != nil {
+	// #nosec G306 -- generated source must stay readable by all users of the repo
+	if err := os.WriteFile(outPath, src, filePerm); err != nil {
 		return fmt.Errorf("write %s: %w", outPath, err)
 	}
 
@@ -176,12 +201,14 @@ func generateJSONSchema(schema *parser.Schema, path string, dryRun bool, stdout,
 	}
 
 	if dir := filepath.Dir(path); dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		// #nosec G301 -- directories are created in the user's repo with standard permissions
+		if err := os.MkdirAll(dir, dirPerm); err != nil {
 			return fmt.Errorf("mkdir %s: %w", dir, err)
 		}
 	}
 
-	if err := os.WriteFile(path, src, 0o644); err != nil {
+	// #nosec G306 -- generated source must stay readable by all users of the repo
+	if err := os.WriteFile(path, src, filePerm); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 
@@ -199,6 +226,7 @@ func basePackageName(out string) string {
 	}
 
 	var keep []rune
+
 	for _, r := range base {
 		if r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
 			keep = append(keep, r)

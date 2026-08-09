@@ -10,6 +10,7 @@ import (
 	"github.com/whoqmi/g8n/internal/spec"
 )
 
+// Field describes the JSON Schema constraints of one environment variable.
 type Field struct {
 	Type        string          `json:"type"`
 	Description string          `json:"description,omitempty"`
@@ -21,6 +22,7 @@ type Field struct {
 	Max         *int            `json:"maximum,omitempty"`
 }
 
+// Schema is a JSON Schema draft-07 document for an env schema.
 type Schema struct {
 	Schema     string            `json:"$schema"`
 	Title      string            `json:"title,omitempty"`
@@ -29,6 +31,7 @@ type Schema struct {
 	Properties map[string]*Field `json:"properties"`
 }
 
+// Generate renders the schema as a JSON Schema document.
 func Generate(s *parser.Schema) ([]byte, error) {
 	doc := &Schema{
 		Schema:     "http://json-schema.org/draft-07/schema#",
@@ -46,6 +49,7 @@ func Generate(s *parser.Schema) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		doc.Properties[f.Key] = fs
 	}
 
@@ -54,6 +58,7 @@ func Generate(s *parser.Schema) ([]byte, error) {
 
 func fieldSchema(f *parser.Field) (*Field, error) {
 	sp := f.Kind.Spec()
+
 	out := &Field{Type: sp.JSONType}
 	if sp.JSONFormat != "" {
 		out.Format = sp.JSONFormat
@@ -98,6 +103,7 @@ func fieldSchema(f *parser.Field) (*Field, error) {
 
 // defaultJSON encodes the schema default with its JSON type.
 func defaultJSON(f *parser.Field) (json.RawMessage, error) {
+	//goland:noinspection GoSwitchMissingCasesForIotaConsts
 	switch f.Kind {
 	case spec.KindInt, spec.KindPort, spec.KindInt64:
 		n, err := strconv.ParseInt(f.Default, 10, 64)
