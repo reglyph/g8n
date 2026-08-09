@@ -40,7 +40,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	)
 
 	fs.Usage = func() {
-		emit(stderr, "g8n — type-safe struct generator for Go\n\n")
+		emit(stderr, "@reglyph/g8n — type-safe struct generator for Go\n\n")
 		emit(stderr, "Usage:\n  g8n -out <file.go> [flags]\n  g8n -schema .env.schema -out internal/env/env.go\n\nFlags:\n")
 		fs.PrintDefaults()
 	}
@@ -54,7 +54,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if *showVer {
-		emit(stdout, "g8n %s\n", ver)
+		emit(stdout, "@reglyph/g8n %s\n", ver)
 		return 0
 	}
 
