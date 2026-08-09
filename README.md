@@ -1,3 +1,10 @@
+<div align="center">
+
+[![CI](https://github.com/reglyph/g8n/actions/workflows/ci.yml/badge.svg)](https://github.com/whoqmi/g8n/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/reglyph/g8n/badge.svg?branch=master)](https://coveralls.io/github/whoqmi/g8n)
+![Go version](https://img.shields.io/github/go-mod/go-version/reglyph/g8n)
+</div>
+
 ![hero.png](assets/hero.png)
 
 ```
@@ -77,20 +84,20 @@ g8n
 package main
 
 import (
-	"log"
-	"fmt"
+  "fmt"
+  "log"
 
-	"project/internal/config"
+  "project/internal/config"
 )
 
 func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		// Error includes the variable name and schema line 
-		log.Fatalf("invalid environment: %v", err)
-	}
+  cfg, err := config.Load()
+  if err != nil {
+    // Error includes the variable name and schema line 
+    log.Fatalf("invalid environment: %v", err)
+  }
 
-	fmt.Println("host: ", cfg.DbHost)
+  fmt.Println("host: ", cfg.DbHost)
 }
 ```
 
@@ -147,4 +154,5 @@ Overlays add new variables and completely replace the declaration of a variable 
 decorators if needed). Root decorators are taken only from the base schema. Missing overlay files are not an error.
 
 ## License
+
 MIT – see [LICENSE](LICENSE).
