@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/whoqmi/g8n/internal/spec"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 func validateDefault(f *Field) error {

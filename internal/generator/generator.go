@@ -6,9 +6,9 @@ import (
 
 	"go/format"
 
-	"github.com/whoqmi/g8n/internal/naming"
-	"github.com/whoqmi/g8n/internal/parser"
-	"github.com/whoqmi/g8n/internal/spec"
+	"github.com/reglyph/g8n/internal/naming"
+	"github.com/reglyph/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 var reservedFieldNames = map[string]string{

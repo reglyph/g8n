@@ -6,9 +6,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/whoqmi/g8n/internal/naming"
-	"github.com/whoqmi/g8n/internal/parser"
-	"github.com/whoqmi/g8n/internal/spec"
+	"github.com/reglyph/g8n/internal/naming"
+	"github.com/reglyph/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 func (g *gen) writeFieldLoad(p *printer, f *parser.Field) error {

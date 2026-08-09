@@ -1,7 +1,7 @@
 <div align="center">
 
-[![CI](https://github.com/reglyph/g8n/actions/workflows/ci.yml/badge.svg)](https://github.com/whoqmi/g8n/actions/workflows/ci.yml)
-[![Coverage Status](https://coveralls.io/repos/github/reglyph/g8n/badge.svg?branch=master)](https://coveralls.io/github/whoqmi/g8n)
+[![CI](https://github.com/reglyph/g8n/actions/workflows/ci.yml/badge.svg)](https://github.com/reglyph/g8n/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/reglyph/g8n/badge.svg?branch=master)](https://coveralls.io/github/reglyph/g8n)
 ![Go version](https://img.shields.io/github/go-mod/go-version/reglyph/g8n)
 </div>
 

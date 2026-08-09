@@ -1,3 +1,3 @@
-module github.com/whoqmi/g8n
+module github.com/reglyph/g8n
 
 go 1.21

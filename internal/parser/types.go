@@ -1,6 +1,6 @@
 package parser
 
-import "github.com/whoqmi/g8n/internal/spec"
+import "github.com/reglyph/g8n/internal/spec"
 
 // Field describes one environment variable declared in the schema.
 type Field struct {

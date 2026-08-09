@@ -3,7 +3,7 @@ package generator
 import (
 	"fmt"
 
-	"github.com/whoqmi/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/parser"
 )
 
 func (g *gen) writeHeader(p *printer) error {

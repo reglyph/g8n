@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/whoqmi/g8n/internal/spec"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 const basicSchemaSrc = `# @package=config
@@ -31,7 +31,7 @@ LIMIT=67
 
 # @type=url
 # @docs=a documentation link
-SITE=https://whoqmi.me/
+SITE=https://reglyph.me/
 `
 
 func TestParseBasic(t *testing.T) {
@@ -68,7 +68,7 @@ func TestParseBasic(t *testing.T) {
 	assertField(t, s, "FEATURE", spec.KindBool, "false", false)
 	assertField(t, s, "LIMIT", spec.KindInt64, "67", false)
 
-	site := assertField(t, s, "SITE", spec.KindURL, "https://whoqmi.me/", false)
+	site := assertField(t, s, "SITE", spec.KindURL, "https://reglyph.me/", false)
 	if len(site.Docs) != 1 || site.Docs[0] != "a documentation link" {
 		t.Errorf("SITE docs = %v", site.Docs)
 	}
@@ -158,7 +158,7 @@ func TestParseDefaultValidation(t *testing.T) {
 		{"BadEnum", "# @type=enum(a,b)\nE=c\n", false},
 		{"GoodEnum", "# @type=enum(a,b)\nE=a\n", true},
 		{"BadURL", "# @type=url\nU=://whatswrongwithyou\n", false},
-		{"GoodURL", "# @type=url\nU=https://whoqmi.me/\n", true},
+		{"GoodURL", "# @type=url\nU=https://reglyph.me/\n", true},
 		{"BadEmail", "# @type=bool\nB=yesplease\n", false},
 		{"GoodEmail", "# @type=email\nE=a@b.co\n", true},
 		{"BadEmail", "# @type=email\nE=me?\n", false},
@@ -245,7 +245,7 @@ func TestParseStandaloneConstraintDecorators(t *testing.T) {
 }
 
 func TestParseTypeWithParenthesizedDocsOnSameLine(t *testing.T) {
-	s, err := ParseString("", "# @type=url @docs=(see docs)\nK=https://whoqmi.me/\n")
+	s, err := ParseString("", "# @type=url @docs=(see docs)\nK=https://reglyph.me/\n")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,7 +3,7 @@ package parser
 import (
 	"strings"
 
-	"github.com/whoqmi/g8n/internal/spec"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 type warnf func(message string, args ...any)

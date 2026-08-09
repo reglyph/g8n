@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/whoqmi/g8n/internal/generator"
-	"github.com/whoqmi/g8n/internal/jsonschema"
-	"github.com/whoqmi/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/generator"
+	"github.com/reglyph/g8n/internal/jsonschema"
+	"github.com/reglyph/g8n/internal/parser"
 )
 
 var ver = "0.0.1"
