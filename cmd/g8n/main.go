@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/whoqmi/g8n/internal/generator"
 
 	"github.com/whoqmi/g8n/internal/parser"
 )
@@ -17,4 +18,6 @@ func main() {
 		fmt.Printf("Fields[%d]: %+v\n", i, *f)
 	}
 
+	file, _ := generator.Generate(s)
+	fmt.Printf("%s", string(file))
 }
