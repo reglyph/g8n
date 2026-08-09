@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/whoqmi/g8n/internal/generator"
+	"github.com/whoqmi/g8n/internal/jsonschema"
 
 	"github.com/whoqmi/g8n/internal/parser"
 )
@@ -19,5 +20,7 @@ func main() {
 	}
 
 	file, _ := generator.Generate(s)
-	fmt.Printf("%s", string(file))
+	jschema, _ := jsonschema.Generate(s)
+	fmt.Printf("%s\n\n\n", string(file))
+	fmt.Printf("%s", string(jschema))
 }
