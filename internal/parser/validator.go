@@ -40,8 +40,13 @@ func validateDefault(f *Field) error {
 }
 
 func validateConstraints(f *Field) error {
+	var rx *regexp.Regexp
+
 	if f.HasRegex() {
-		if _, err := regexp.Compile(f.Regex); err != nil {
+		var err error
+
+		rx, err = regexp.Compile(f.Regex)
+		if err != nil {
 			return fmt.Errorf("line %d: variable %s: invalid @regex=%q: %w", f.Line, f.Key, f.Regex, err)
 		}
 	}
@@ -54,10 +59,8 @@ func validateConstraints(f *Field) error {
 		return fmt.Errorf("line %d: variable %s: default %q does not start with %q", f.Line, f.Key, f.Default, f.StartsWith)
 	}
 
-	if f.HasRegex() {
-		if re, err := regexp.Compile(f.Regex); err == nil && !re.MatchString(f.Default) {
-			return fmt.Errorf("line %d: variable %s: default %q does not match @regex=%q", f.Line, f.Key, f.Default, f.Regex)
-		}
+	if f.HasRegex() && !rx.MatchString(f.Default) {
+		return fmt.Errorf("line %d: variable %s: default %q does not match @regex=%q", f.Line, f.Key, f.Default, f.Regex)
 	}
 
 	return nil
