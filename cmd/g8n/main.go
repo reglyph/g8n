@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/token"
 	"io"
 	"os"
 	"path/filepath"
@@ -144,7 +145,10 @@ func resolveOutputs(schemaPath string, schema *parser.Schema, pkg, outPath strin
 	}
 
 	if pkg == "" {
-		pkg = basePackageName(outPath)
+		pkg, err = basePackageName(outPath)
+		if err != nil {
+			return "", "", err
+		}
 	}
 
 	if !pkgNameRx.MatchString(pkg) {
@@ -217,14 +221,31 @@ func generateJSONSchema(schema *parser.Schema, path string, dryRun bool, stdout,
 	return nil
 }
 
-func basePackageName(out string) string {
-	dir := filepath.Dir(out)
-	base := filepath.Base(dir)
+func basePackageName(out string) (string, error) {
+	base := filepath.Base(filepath.Dir(out))
 
 	if base == "" || base == "." || base == string(filepath.Separator) {
-		return "env"
+		return "env", nil
 	}
 
+	name := sanitizePackageName(base)
+
+	if name == "" {
+		return "env", nil
+	}
+
+	if token.IsKeyword(name) {
+		return "", fmt.Errorf("cannot derive Go package name from %q: %q is a Go keyword", base, name)
+	}
+
+	if name[0] >= '0' && name[0] <= '9' {
+		name = "env_" + name
+	}
+
+	return name, nil
+}
+
+func sanitizePackageName(base string) string {
 	var keep []rune
 
 	for _, r := range base {
@@ -233,17 +254,7 @@ func basePackageName(out string) string {
 		}
 	}
 
-	name := string(keep)
-
-	if name == "" {
-		return "env"
-	}
-
-	if name[0] >= '0' && name[0] <= '9' {
-		name = "env_" + name
-	}
-
-	return name
+	return string(keep)
 }
 
 func resolveRelative(dir, opt string) string {
