@@ -164,7 +164,9 @@ func TestComputeUses(t *testing.T) {
 		{Key: "G", Kind: spec.KindString, Required: true, HasDefault: true},
 	}}}
 
-	g.computeUses()
+	if err := g.computeUses(); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, imp := range []string{"os", "strings", "strconv", "net/url", "regexp", "fmt"} {
 		if !g.uses[imp] {

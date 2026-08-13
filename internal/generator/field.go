@@ -34,7 +34,11 @@ func (g *gen) writeFieldLoad(p *printer, f *parser.Field) error {
 			p.dedent()
 			p.line("}")
 			expandStmt(p, "v")
-			g.writeConversion(p, f, target, "v", false)
+
+			if err := g.writeConversion(p, f, target, "v", false); err != nil {
+				return err
+			}
+
 			p.dedent()
 			p.line("}")
 
@@ -55,7 +59,11 @@ func (g *gen) writeFieldLoad(p *printer, f *parser.Field) error {
 		p.line("} else {")
 		p.indent()
 		expandStmt(p, "v")
-		g.writeConversion(p, f, target, "v", false)
+
+		if err := g.writeConversion(p, f, target, "v", false); err != nil {
+			return err
+		}
+
 		p.dedent()
 		p.line("}")
 		p.dedent()
@@ -69,7 +77,10 @@ func (g *gen) writeFieldLoad(p *printer, f *parser.Field) error {
 	p.linef("if v, ok := m[%s]; ok && v != \"\" {", key)
 	p.indent()
 	expandStmt(p, "v")
-	g.writeConversion(p, f, target, "v", true)
+
+	if err := g.writeConversion(p, f, target, "v", true); err != nil {
+		return err
+	}
 
 	if hasDefault {
 		p.dedent()
@@ -97,9 +108,8 @@ func (g *gen) writeDefaultValue(p *printer, f *parser.Field, target string, ptr 
 
 	if f.Kind.IsStringLike() {
 		p.linef("t := %s", g.expandExpr(f, lit))
-		g.writeConversion(p, f, target, "t", ptr)
 
-		return nil
+		return g.writeConversion(p, f, target, "t", ptr)
 	}
 
 	if ptr {
@@ -182,14 +192,21 @@ func typedLiteral(f *parser.Field) (string, error) {
 	}
 }
 
-func (g *gen) writeConversion(p *printer, f *parser.Field, target, src string, ptr bool) {
-	g.writeParseAndAssign(p, f, target, src, ptr)
-	g.writeValueCheck(p, f, src)
+func (g *gen) writeConversion(p *printer, f *parser.Field, target, src string, ptr bool) error {
+	if err := g.writeParseAndAssign(p, f, target, src, ptr); err != nil {
+		return err
+	}
+
+	if err := g.writeValueCheck(p, f, src); err != nil {
+		return err
+	}
+
 	g.writeConstraints(p, f, src)
-	g.writeAssignment(p, f, target, src, ptr)
+
+	return g.writeAssignment(p, f, target, src, ptr)
 }
 
-func (g *gen) writeParseAndAssign(p *printer, f *parser.Field, target, src string, ptr bool) {
+func (g *gen) writeParseAndAssign(p *printer, f *parser.Field, target, src string, ptr bool) error {
 	switch f.Kind {
 	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
 
@@ -221,7 +238,12 @@ func (g *gen) writeParseAndAssign(p *printer, f *parser.Field, target, src strin
 		p.linef("fv, convErr := strconv.ParseFloat(%s, 64)", src)
 		g.writeConvCheck(p, f, "a float64", src)
 		assignPointerOrValue(p, target, "fv", ptr)
+
+	default:
+		return fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
 	}
+
+	return nil
 }
 
 func (g *gen) writeConvCheck(p *printer, f *parser.Field, what, src string) {
@@ -259,8 +281,7 @@ func assignPointerOrValue(p *printer, target, name string, ptr bool) {
 	p.linef("%s = %s", target, name)
 }
 
-func (g *gen) writeValueCheck(p *printer, f *parser.Field, src string) {
-	//goland:noinspection GoSwitchMissingCasesForIotaConsts
+func (g *gen) writeValueCheck(p *printer, f *parser.Field, src string) error {
 	switch f.Kind {
 	case spec.KindURL:
 		p.linef("if _, convErr := url.ParseRequestURI(%s); convErr != nil {", src)
@@ -291,9 +312,14 @@ func (g *gen) writeValueCheck(p *printer, f *parser.Field, src string) {
 		p.dedent()
 		p.line("}")
 
-	case spec.KindString:
+	case spec.KindString, spec.KindInt, spec.KindInt64, spec.KindBool, spec.KindFloat64, spec.KindPort:
 		// nothing to validate
+
+	default:
+		return fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
 	}
+
+	return nil
 }
 
 func writeValueError(p *printer, f *parser.Field, sensitiveMsg, msg, src string) {
@@ -341,12 +367,19 @@ func writeConstraintError(p *printer, f *parser.Field, sensitiveMsg, msg, src, e
 	p.linef("return e, fmt.Errorf(\"env: %s: %s\", %s)", f.Key, msg, src)
 }
 
-func (g *gen) writeAssignment(p *printer, f *parser.Field, target, src string, ptr bool) {
-	//goland:noinspection GoSwitchMissingCasesForIotaConsts
+func (g *gen) writeAssignment(p *printer, f *parser.Field, target, src string, ptr bool) error {
 	switch f.Kind {
 	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
 		assignPointerOrValue(p, target, src, ptr)
+
+	case spec.KindInt, spec.KindInt64, spec.KindBool, spec.KindFloat64, spec.KindPort:
+		// assigned in writeParseAndAssign
+
+	default:
+		return fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
 	}
+
+	return nil
 }
 
 func (g *gen) regexVar(f *parser.Field) string {

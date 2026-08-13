@@ -92,7 +92,7 @@ func fieldSchema(f *parser.Field) (*Field, error) {
 
 	if f.Regex != "" {
 		if out.Pattern != "" {
-			out.Pattern = "(?:" + out.Pattern + ")|(?:" + f.Regex + ")"
+			out.Pattern = "(?=" + out.Pattern + ")(?:" + f.Regex + ")"
 		} else {
 			out.Pattern = f.Regex
 		}
@@ -103,8 +103,10 @@ func fieldSchema(f *parser.Field) (*Field, error) {
 
 // defaultJSON encodes the schema default with its JSON type.
 func defaultJSON(f *parser.Field) (json.RawMessage, error) {
-	//goland:noinspection GoSwitchMissingCasesForIotaConsts
 	switch f.Kind {
+	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
+		return json.Marshal(f.Default)
+
 	case spec.KindInt, spec.KindPort, spec.KindInt64:
 		n, err := strconv.ParseInt(f.Default, 10, 64)
 		if err != nil {
@@ -128,12 +130,8 @@ func defaultJSON(f *parser.Field) (json.RawMessage, error) {
 		}
 
 		return json.Marshal(v)
-	}
 
-	b, err := json.Marshal(f.Default)
-	if err != nil {
-		return nil, fmt.Errorf("invalid default %q for variable %s: %w", f.Default, f.Key, err)
+	default:
+		return nil, fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
 	}
-
-	return b, nil
 }

@@ -105,7 +105,9 @@ func (g *gen) build() ([]byte, error) {
 		return nil, err
 	}
 
-	g.computeUses()
+	if err := g.computeUses(); err != nil {
+		return nil, err
+	}
 
 	var p printer
 	if err := g.writeHeader(&p); err != nil {
@@ -127,11 +129,10 @@ func (g *gen) build() ([]byte, error) {
 	return p.bytes(), nil
 }
 
-func (g *gen) computeUses() {
+func (g *gen) computeUses() error {
 	g.uses = map[string]bool{"os": true, "strings": true}
 
 	for _, f := range g.schema.Fields {
-		//goland:noinspection GoSwitchMissingCasesForIotaConsts
 		switch f.Kind {
 		case spec.KindInt, spec.KindInt64, spec.KindBool, spec.KindFloat64, spec.KindPort:
 			g.uses["strconv"] = true
@@ -139,6 +140,9 @@ func (g *gen) computeUses() {
 			g.uses["net/url"] = true
 		case spec.KindEnum:
 			g.hasEnum = true
+		case spec.KindString, spec.KindEmail:
+		default:
+			return fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
 		}
 
 		if f.Required && (!f.HasDefault || f.Sensitive) {
@@ -162,6 +166,8 @@ func (g *gen) computeUses() {
 			g.uses["regexp"] = true
 		}
 	}
+
+	return nil
 }
 
 func (g *gen) expandable(f *parser.Field) bool {
