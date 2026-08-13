@@ -104,7 +104,7 @@ func parseOut(s *Schema, tok string, warn warnf) {
 		return
 	}
 
-	for _, param := range strings.Split(inner, ",") {
+	for _, param := range splitParams(inner) {
 		kv := strings.SplitN(strings.TrimSpace(param), "=", 2)
 
 		if len(kv) != 2 {
@@ -199,7 +199,9 @@ func parseSingleDecorator(f *Field, body string, warn warnf) bool {
 	return false
 }
 
-func splitDecoratorTokens(body string) []string {
+// splitParenAware splits body on runes for which split reports true, ignoring
+// separators nested inside parentheses.
+func splitParenAware(body string, split func(rune) bool) []string {
 	var tokens []string
 
 	var cur strings.Builder
@@ -219,7 +221,7 @@ func splitDecoratorTokens(body string) []string {
 
 			cur.WriteRune(r)
 
-		case (r == ' ' || r == '\t' || r == '\r' || r == '\n') && depth == 0:
+		case split(r) && depth == 0:
 			if cur.Len() > 0 {
 				tokens = append(tokens, cur.String())
 				cur.Reset()
@@ -234,6 +236,16 @@ func splitDecoratorTokens(body string) []string {
 	}
 
 	return tokens
+}
+
+func splitDecoratorTokens(body string) []string {
+	return splitParenAware(body, func(r rune) bool {
+		return r == ' ' || r == '\t' || r == '\r' || r == '\n'
+	})
+}
+
+func splitParams(s string) []string {
+	return splitParenAware(s, func(r rune) bool { return r == ',' })
 }
 
 func applyType(f *Field, arg string, warn warnf) {
@@ -259,7 +271,7 @@ func applyType(f *Field, arg string, warn warnf) {
 	if kind == spec.KindEnum {
 		f.Enum = nil
 
-		for _, part := range strings.Split(opts, ",") {
+		for _, part := range splitParams(opts) {
 			if part = strings.TrimSpace(part); part != "" {
 				f.Enum = append(f.Enum, part)
 			}
@@ -278,7 +290,7 @@ func applyType(f *Field, arg string, warn warnf) {
 }
 
 func applyTypeOptions(f *Field, options string, warn warnf) {
-	for _, opt := range strings.Split(options, ",") {
+	for _, opt := range splitParams(options) {
 		kv := strings.SplitN(strings.TrimSpace(opt), "=", 2)
 
 		if len(kv) != 2 {

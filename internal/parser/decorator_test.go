@@ -13,6 +13,48 @@ func TestIsDecoratorEmptyLine(t *testing.T) {
 	}
 }
 
+func TestSplitParamsParenAware(t *testing.T) {
+	if got := splitParams("a,(b,c),d"); len(got) != 3 || got[0] != "a" || got[1] != "(b,c)" || got[2] != "d" {
+		t.Errorf("splitParams(a,(b,c),d) = %#v", got)
+	}
+
+	if got := splitParams(""); got != nil {
+		t.Errorf("splitParams() = %#v, want nil", got)
+	}
+}
+
+func TestRegexWithCommaInGroup(t *testing.T) {
+	s, err := ParseString("", "# @type=string(regex=^(a,b)+$)\nK=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := s.FieldByKey("K")
+	if f == nil || f.Regex != "^(a,b)+$" {
+		t.Fatalf("regex = %q, want ^(a,b)+$", f.Regex)
+	}
+
+	if len(s.Warnings) != 0 {
+		t.Errorf("warnings = %v, want none", s.Warnings)
+	}
+}
+
+func TestEnumValueWithCommaInParens(t *testing.T) {
+	s, err := ParseString("", "# @type=enum(one,(two,three))\nK=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := s.FieldByKey("K")
+	if f == nil {
+		t.Fatal("field K missing")
+	}
+
+	if len(f.Enum) != 2 || f.Enum[0] != "one" || f.Enum[1] != "(two,three)" {
+		t.Errorf("enum = %#v, want [one (two,three)]", f.Enum)
+	}
+}
+
 func TestDecoratorNameParenWithoutEquals(t *testing.T) {
 	if got := decoratorName("@out(path=x)"); got != "@out" {
 		t.Errorf("decoratorName(@out(path=x)) = %q, want @out", got)
