@@ -153,7 +153,7 @@ func ParseString(source, src string) (*Schema, error) {
 func parseFieldLine(s *Schema, pending []string, line string, lineNo int, warn warnf, fail func(int, string, ...any) error) error {
 	m := varKeyRx.FindStringSubmatch(line)
 	if m == nil {
-		return fail(lineNo, "expected KEY=VALUE, got %q", line)
+		return fail(lineNo, "expected KEY=VALUE")
 	}
 
 	k, v := m[1], m[2]
