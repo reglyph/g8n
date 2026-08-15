@@ -7,9 +7,7 @@ import (
 	"github.com/reglyph/g8n/internal/spec"
 )
 
-// decorator describes one field decorator: which syntaxes it supports and
-// how it is applied. Constraint-style decorators additionally carry the
-// validation, emission and JSON Schema logic.
+// decorator describes one field decorator: which syntaxes it supports and how it is applied.
 type decorator struct {
 	name string
 
@@ -22,30 +20,13 @@ type decorator struct {
 	apply    func(f *Field, val string, warn warnf) // standalone and token forms
 	applyOpt func(f *Field, val string, warn warnf) // @type option form; falls back to apply
 
-	constraint Constraint
+	// isConstraint marks decorators whose checks are driven by constraints.Order.
+	isConstraint bool
 }
 
 // decorators is the registry of field decorators. Standalone matching order
 // matters and must be preserved when adding entries.
 var decorators []*decorator
-
-// BuildConstraints returns the constraints present on the field, in the
-// order their checks must run: startsWith, regex, then min and max.
-func BuildConstraints(f *Field) []Constraint {
-	var out []Constraint
-
-	for _, d := range decorators {
-		if d.constraint == nil {
-			continue
-		}
-
-		if c := d.constraint; c.Present(f) {
-			out = append(out, c)
-		}
-	}
-
-	return out
-}
 
 func init() {
 	decorators = []*decorator{
@@ -60,15 +41,13 @@ func init() {
 				f.HasDefault = true
 			}
 		}},
-		{name: "startsWith", standalone: true, option: true,
-			apply:      func(f *Field, val string, warn warnf) { applyStringConstraint(f, "@startsWith", val, warn) },
-			applyOpt:   func(f *Field, val string, warn warnf) { applyStringConstraint(f, "startsWith", val, warn) },
-			constraint: constraints.StartsWith(),
+		{name: "startsWith", standalone: true, option: true, isConstraint: true,
+			apply:    func(f *Field, val string, warn warnf) { applyStringConstraint(f, "@startsWith", val, warn) },
+			applyOpt: func(f *Field, val string, warn warnf) { applyStringConstraint(f, "startsWith", val, warn) },
 		},
-		{name: "regex", standalone: true, option: true,
-			apply:      func(f *Field, val string, warn warnf) { applyStringConstraint(f, "@regex", val, warn) },
-			applyOpt:   func(f *Field, val string, warn warnf) { applyStringConstraint(f, "regex", val, warn) },
-			constraint: constraints.Regex(),
+		{name: "regex", standalone: true, option: true, isConstraint: true,
+			apply:    func(f *Field, val string, warn warnf) { applyStringConstraint(f, "@regex", val, warn) },
+			applyOpt: func(f *Field, val string, warn warnf) { applyStringConstraint(f, "regex", val, warn) },
 		},
 		{name: "type", standalone: true, singleToken: true, token: true,
 			apply: func(f *Field, val string, warn warnf) { applyType(f, val, warn) },
@@ -80,6 +59,19 @@ func init() {
 			f.Sensitive = true
 		}},
 	}
+}
+
+// BuildConstraints returns the constraints present on the field, in the order defined by constraints.Order.
+func BuildConstraints(f *Field) []Constraint {
+	var out []Constraint
+
+	for _, c := range constraints.Order() {
+		if c.Present(f) {
+			out = append(out, c)
+		}
+	}
+
+	return out
 }
 
 func lookupDecorator(name string) *decorator {

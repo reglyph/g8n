@@ -31,6 +31,11 @@ type Constraint interface {
 	Schema(f *model.Field) (FieldSchema, error)
 }
 
+// Order returns the constraint checks in the order they must run.
+func Order() []Constraint {
+	return []Constraint{StartsWith(), Regex()}
+}
+
 // fieldCtx prefixes validation messages with the field location.
 func fieldCtx(f *model.Field) string {
 	return fmt.Sprintf("line %d: variable %s", f.Line, f.Key)
