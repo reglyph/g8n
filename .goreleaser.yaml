@@ -48,9 +48,10 @@ changelog:
 
 brews:
   - name: g8n
+    directory: Formula
     repository:
       owner: reglyph
-      name: homebrew-g8n
+      name: homebrew-tap
     homepage: https://github.com/reglyph/g8n
     description: Type-safe environment struct generator for Go
     license: MIT
