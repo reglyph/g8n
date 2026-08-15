@@ -19,3 +19,39 @@ func TestGoFieldName(t *testing.T) {
 		}
 	}
 }
+
+func TestTSFieldName(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"APP_ENV", "appEnv"},
+		{"PORT", "port"},
+		{"FEATURE_V_2", "featureV2"},
+		{"V3_ID", "v3Id"},
+		{"MAX_UPLOAD_BYTES", "maxUploadBytes"},
+		{"", ""},
+	}
+
+	for _, c := range cases {
+		if got := TSFieldName(c.in); got != c.want {
+			t.Errorf("TSFieldName(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestLowerFirst(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"Hello", "hello"},
+		{"DBHost", "dBHost"},
+		{"", ""},
+		{"x", "x"},
+	}
+
+	for _, c := range cases {
+		if got := LowerFirst(c.in); got != c.want {
+			t.Errorf("LowerFirst(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
