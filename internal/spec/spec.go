@@ -120,82 +120,123 @@ func IsValidEmail(s string) bool {
 	return at > 0 && dot > at+1
 }
 
-// ValidateLiteral checks that s is a valid literal of the kind.
-func (k Kind) ValidateLiteral(s string) error {
+// Literal is a parsed and validated default value
+type Literal struct {
+	Str   string
+	Int   int64
+	Float float64
+	Bool  bool
+}
+
+// ParseLiteral parses s as a literal of the kind
+func (k Kind) ParseLiteral(s string) (Literal, error) {
+	var out Literal
+
 	switch k {
 	case KindInt:
-		return parseSignedInt(s, "int", 0)
+		n, err := parseSignedInt(s, "int", 0)
+		out.Int = n
+
+		return out, err
 	case KindInt64:
-		return parseSignedInt(s, "int64", int64BitSize)
+		n, err := parseSignedInt(s, "int64", int64BitSize)
+		out.Int = n
+
+		return out, err
 	case KindPort:
-		return parsePort(s)
+		n, err := parsePort(s)
+		out.Int = n
+
+		return out, err
 	case KindBool:
-		return parseBoolLiteral(s)
+		b, err := parseBoolLiteral(s)
+		out.Bool = b
+
+		return out, err
 	case KindFloat64:
-		return parseFloatLiteral(s)
+		v, err := parseFloatLiteral(s)
+		out.Float = v
+
+		return out, err
 	case KindURL:
-		return parseURLLiteral(s)
+		str, err := parseURLLiteral(s)
+		out.Str = str
+
+		return out, err
 	case KindEmail:
-		return parseEmailLiteral(s)
+		str, err := parseEmailLiteral(s)
+		out.Str = str
+
+		return out, err
 	default:
-		return nil
+		out.Str = s
+
+		return out, nil
 	}
 }
 
-func parseSignedInt(s, typ string, bits int) error {
-	if _, err := strconv.ParseInt(s, 10, bits); err != nil {
-		return fmt.Errorf("invalid default %q for type %s: %w", s, typ, err)
-	}
-
-	return nil
+// ValidateLiteral checks that s is a valid literal of the kind.
+func (k Kind) ValidateLiteral(s string) error {
+	_, err := k.ParseLiteral(s)
+	return err
 }
 
-func parsePort(s string) error {
+func parseSignedInt(s, typ string, bits int) (int64, error) {
+	n, err := strconv.ParseInt(s, 10, bits)
+	if err != nil {
+		return 0, fmt.Errorf("invalid default %q for type %s: %w", s, typ, err)
+	}
+
+	return n, nil
+}
+
+func parsePort(s string) (int64, error) {
 	n, err := strconv.ParseInt(s, 10, 0)
 	if err != nil {
-		return fmt.Errorf("invalid default %q for type port: %w", s, err)
+		return 0, fmt.Errorf("invalid default %q for type port: %w", s, err)
 	}
 
 	if n < PortMin || n > PortMax {
-		return fmt.Errorf("invalid default %q for type port: %d out of range", s, n)
+		return 0, fmt.Errorf("invalid default %q for type port: %d out of range", s, n)
 	}
 
-	return nil
+	return n, nil
 }
 
-func parseBoolLiteral(s string) error {
-	if _, err := strconv.ParseBool(s); err != nil {
-		return fmt.Errorf("invalid default %q for type bool: %w", s, err)
+func parseBoolLiteral(s string) (bool, error) {
+	v, err := strconv.ParseBool(s)
+	if err != nil {
+		return false, fmt.Errorf("invalid default %q for type bool: %w", s, err)
 	}
 
-	return nil
+	return v, nil
 }
 
-func parseFloatLiteral(s string) error {
+func parseFloatLiteral(s string) (float64, error) {
 	v, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return fmt.Errorf("invalid default %q for type float64: %w", s, err)
+		return 0, fmt.Errorf("invalid default %q for type float64: %w", s, err)
 	}
 
 	if math.IsNaN(v) || math.IsInf(v, 0) {
-		return fmt.Errorf("invalid default %q for type float64: NaN and Infinity are not allowed", s)
+		return 0, fmt.Errorf("invalid default %q for type float64: NaN and Infinity are not allowed", s)
 	}
 
-	return nil
+	return v, nil
 }
 
-func parseURLLiteral(s string) error {
+func parseURLLiteral(s string) (string, error) {
 	if _, err := url.ParseRequestURI(s); err != nil {
-		return fmt.Errorf("invalid default %q for type url: %w", s, err)
+		return "", fmt.Errorf("invalid default %q for type url: %w", s, err)
 	}
 
-	return nil
+	return s, nil
 }
 
-func parseEmailLiteral(s string) error {
+func parseEmailLiteral(s string) (string, error) {
 	if !IsValidEmail(s) {
-		return fmt.Errorf("invalid default %q for type email: value is not a valid email", s)
+		return "", fmt.Errorf("invalid default %q for type email: value is not a valid email", s)
 	}
 
-	return nil
+	return s, nil
 }

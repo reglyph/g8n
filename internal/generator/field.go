@@ -158,37 +158,22 @@ func zeroLiteral(kind spec.Kind) string {
 }
 
 func typedLiteral(f *parser.Field) (string, error) {
+	lit, err := f.Kind.ParseLiteral(f.Default)
+	if err != nil {
+		return "", fmt.Errorf("variable %s: %w", f.Key, err)
+	}
+
 	switch f.Kind {
 	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
-		return strconv.Quote(f.Default), nil
+		return strconv.Quote(lit.Str), nil
 	case spec.KindInt, spec.KindPort:
-		n, err := strconv.ParseInt(f.Default, 10, 64)
-		if err != nil {
-			return "", fmt.Errorf("invalid default %q for variable %s: not an integer", f.Default, f.Key)
-		}
-
-		return strconv.FormatInt(n, 10), nil
+		return strconv.FormatInt(lit.Int, 10), nil
 	case spec.KindInt64:
-		n, err := strconv.ParseInt(f.Default, 10, 64)
-		if err != nil {
-			return "", fmt.Errorf("invalid default %q for variable %s: not an int64", f.Default, f.Key)
-		}
-
-		return "int64(" + strconv.FormatInt(n, 10) + ")", nil
+		return "int64(" + strconv.FormatInt(lit.Int, 10) + ")", nil
 	case spec.KindFloat64:
-		v, err := strconv.ParseFloat(f.Default, 64)
-		if err != nil {
-			return "", fmt.Errorf("invalid default %q for variable %s: not a float64", f.Default, f.Key)
-		}
-
-		return "float64(" + strconv.FormatFloat(v, 'g', -1, 64) + ")", nil
+		return "float64(" + strconv.FormatFloat(lit.Float, 'g', -1, 64) + ")", nil
 	case spec.KindBool:
-		v, err := strconv.ParseBool(f.Default)
-		if err != nil {
-			return "", fmt.Errorf("invalid default %q for variable %s: not a boolean", f.Default, f.Key)
-		}
-
-		return strconv.FormatBool(v), nil
+		return strconv.FormatBool(lit.Bool), nil
 	default:
 		return "", fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
 	}

@@ -3,7 +3,6 @@ package jsonschema
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/reglyph/g8n/internal/parser"
 	"github.com/reglyph/g8n/internal/spec"
@@ -111,35 +110,19 @@ func mergeSchemaKeywords(out *Field, cs parser.FieldSchema) {
 
 // defaultJSON encodes the schema default with its JSON type.
 func defaultJSON(f *parser.Field) (json.RawMessage, error) {
+	lit, err := f.Kind.ParseLiteral(f.Default)
+	if err != nil {
+		return nil, fmt.Errorf("variable %s: %w", f.Key, err)
+	}
+
 	switch f.Kind {
-	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
-		return json.Marshal(f.Default)
-
 	case spec.KindInt, spec.KindPort, spec.KindInt64:
-		n, err := strconv.ParseInt(f.Default, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid default %q for variable %s: not an integer", f.Default, f.Key)
-		}
-
-		return json.Marshal(n)
-
+		return json.Marshal(lit.Int)
 	case spec.KindBool:
-		v, err := strconv.ParseBool(f.Default)
-		if err != nil {
-			return nil, fmt.Errorf("invalid default %q for variable %s: not a boolean", f.Default, f.Key)
-		}
-
-		return json.Marshal(v)
-
+		return json.Marshal(lit.Bool)
 	case spec.KindFloat64:
-		v, err := strconv.ParseFloat(f.Default, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid default %q for variable %s: not a float64", f.Default, f.Key)
-		}
-
-		return json.Marshal(v)
-
+		return json.Marshal(lit.Float)
 	default:
-		return nil, fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
+		return json.Marshal(lit.Str)
 	}
 }
