@@ -317,6 +317,10 @@ func applyType(f *Field, arg string, warn warnf) {
 		warn("unknown @type=%q, falling back to string", name)
 	}
 
+	if f.Kind != spec.KindString {
+		warn("variable %q: @type already declared; %q wins", f.Key, name)
+	}
+
 	f.Kind = kind
 
 	if kind == spec.KindEnum {

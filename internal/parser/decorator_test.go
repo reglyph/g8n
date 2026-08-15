@@ -295,3 +295,23 @@ func TestParseStandaloneStartsWithEmpty(t *testing.T) {
 		t.Errorf("want startsWith warning, got %v", s.Warnings)
 	}
 }
+
+func TestParseDuplicateTypeWarns(t *testing.T) {
+	s, err := ParseString("", "# @type=port\n# @type=int\nK=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := s.FieldByKey("K")
+	if f == nil {
+		t.Fatal("field K missing")
+	}
+
+	if f.Kind != spec.KindInt {
+		t.Errorf("kind = %v, want last @type to win (int)", f.Kind)
+	}
+
+	if len(s.Warnings) == 0 || !strings.Contains(s.Warnings[0], "@type already declared") {
+		t.Errorf("want duplicate @type warning, got %v", s.Warnings)
+	}
+}

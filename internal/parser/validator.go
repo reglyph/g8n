@@ -41,7 +41,7 @@ func validateDefault(f *Field) error {
 func validateConstraints(f *Field) error {
 	for _, c := range BuildConstraints(f) {
 		if err := c.Validate(f); err != nil {
-			return err
+			return fmt.Errorf("%s: %w", c.Name(), err)
 		}
 	}
 
@@ -51,7 +51,7 @@ func validateConstraints(f *Field) error {
 
 	for _, c := range BuildConstraints(f) {
 		if err := c.ValidateDefault(f); err != nil {
-			return err
+			return fmt.Errorf("%s: %w", c.Name(), err)
 		}
 	}
 
