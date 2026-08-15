@@ -341,6 +341,44 @@ func TestParseFilesMerge(t *testing.T) {
 	}
 }
 
+func TestParseFilesOverlayRootDecoratorsWarn(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, content string) string {
+		t.Helper()
+
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		return path
+	}
+	base := write("base.env.schema", "# @package=env\nA=1\n")
+	overlay := write(".env.local", "# @package=other\nB=2\n")
+
+	s, err := ParseFiles(base, overlay)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if s.Package != "env" {
+		t.Errorf("overlay root decorator leaked into base: %q", s.Package)
+	}
+
+	found := false
+	for _, w := range s.Warnings {
+		if strings.Contains(w, "ignored in overlay files") {
+			found = true
+
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("want overlay root decorator warning, got %v", s.Warnings)
+	}
+}
+
 func TestParseFilesMissingOverlaySkipped(t *testing.T) {
 	dir := t.TempDir()
 	base := filepath.Join(dir, "base.env.schema")

@@ -39,6 +39,10 @@ func ParseFiles(base string, overlays ...string) (*Schema, error) {
 
 		Merge(s, o)
 		s.Warnings = append(s.Warnings, o.Warnings...)
+
+		if o.Package != "" || o.OutPath != "" {
+			s.Warnings = append(s.Warnings, fmt.Sprintf("envschema %s: @package/@out are ignored in overlay files; configure them in the base schema instead", overlay))
+		}
 	}
 
 	return s, nil
