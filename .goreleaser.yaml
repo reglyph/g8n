@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: g8n
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/g8n
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.ver={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^style:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+
+brews:
+  - name: g8n
+    repository:
+      owner: reglyph
+      name: homebrew-g8n
+    homepage: https://github.com/reglyph/g8n
+    description: Type-safe environment struct generator for Go
+    license: MIT
+    install: |
+      bin.install "g8n"
+    test: |
+      system "#{bin}/g8n", "-version"
+    commit_author:
+      name: reglyph[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
