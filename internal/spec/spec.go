@@ -120,7 +120,7 @@ func IsValidEmail(s string) bool {
 	return at > 0 && dot > at+1
 }
 
-// Literal is a parsed and validated default value
+// Literal is a parsed and validated default value.
 type Literal struct {
 	Str   string
 	Int   int64
@@ -128,7 +128,7 @@ type Literal struct {
 	Bool  bool
 }
 
-// ParseLiteral parses s as a literal of the kind
+// ParseLiteral parses s as a literal of the kind.
 func (k Kind) ParseLiteral(s string) (Literal, error) {
 	var out Literal
 
