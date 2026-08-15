@@ -13,6 +13,7 @@ import (
 	"github.com/reglyph/g8n/internal/generator"
 	"github.com/reglyph/g8n/internal/jsonschema"
 	"github.com/reglyph/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 var ver = "0.0.1"
@@ -113,7 +114,7 @@ func generate(schemaPath, outPath, pkgName, envName, jsonOut string, force, dryR
 
 	schema.Package = pkgName
 
-	src, err := generator.Generate(schema)
+	src, err := generator.Generate(schema, spec.LangGo)
 	if err != nil {
 		return fmt.Errorf("generate %s: %w", outPath, err)
 	}
