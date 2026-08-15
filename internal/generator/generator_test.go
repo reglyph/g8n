@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/reglyph/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")
@@ -100,7 +101,7 @@ func TestGenerateGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			out, err := Generate(s)
+			out, err := Generate(s, spec.LangGo)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -140,7 +141,7 @@ func TestGenerateGoldenOutputTypeChecks(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			out, err := Generate(s)
+			out, err := Generate(s, spec.LangGo)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -156,7 +157,7 @@ func TestGenerateRequiresPackage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = Generate(s)
+	_, err = Generate(s, spec.LangGo)
 	if err == nil || !strings.Contains(err.Error(), "package name is required") {
 		t.Fatalf("want missing package error, got %v", err)
 	}
@@ -168,7 +169,7 @@ func TestGenerateFieldNameCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = Generate(s)
+	_, err = Generate(s, spec.LangGo)
 	if err == nil || !strings.Contains(err.Error(), "collides") {
 		t.Fatalf("want collision error, got %v", err)
 	}

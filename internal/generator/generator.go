@@ -11,7 +11,7 @@ import (
 	"github.com/reglyph/g8n/internal/spec"
 )
 
-var reservedFieldNames = map[string]string{
+var goReservedFieldNames = map[string]string{
 	"Env":           "EnvValue",
 	"SensitiveKeys": "SensitiveKeysValue",
 	"Load":          "LoadValue",
@@ -19,48 +19,41 @@ var reservedFieldNames = map[string]string{
 	"ExpandVars":    "ExpandVarsValue",
 }
 
-// Generate renders the schema as a formatted Go source file.
-func Generate(s *parser.Schema) ([]byte, error) {
-	g := &gen{schema: s}
-
-	src, err := g.build()
-	if err != nil {
-		return nil, err
+// Generate renders the schema as a formatted source file in the given language.
+func Generate(s *parser.Schema, lang spec.Lang) ([]byte, error) {
+	switch lang {
+	case spec.LangGo:
+		return (&goGen{schema: s}).build()
+	default:
+		return nil, fmt.Errorf("unsupported language %s", lang)
 	}
-
-	formatted, err := format.Source(src)
-	if err != nil {
-		return nil, fmt.Errorf("generated source for schema %q is not valid Go: %w", s.SourcePath, err)
-	}
-
-	return formatted, nil
 }
 
-type gen struct {
+type goGen struct {
 	schema    *parser.Schema
 	uses      map[string]bool
 	hasEnum   bool
 	hasExpand bool
 }
 
-func (g *gen) fieldName(key string) string {
+func (g *goGen) fieldName(key string) string {
 	n := naming.GoFieldName(key)
 
-	if repl, ok := reservedFieldNames[n]; ok {
+	if repl, ok := goReservedFieldNames[n]; ok {
 		return repl
 	}
 
 	return n
 }
 
-func (g *gen) checkFieldNameCollisions() error {
-	seen := make(map[string]*parser.Field, len(g.schema.Fields))
+func checkFieldNameCollisions(s *parser.Schema, fieldName func(string) string) error {
+	seen := make(map[string]*parser.Field, len(s.Fields))
 
-	for _, f := range g.schema.Fields {
-		name := g.fieldName(f.Key)
+	for _, f := range s.Fields {
+		name := fieldName(f.Key)
 
 		if first, ok := seen[name]; ok {
-			return fmt.Errorf("line %d: variable %q: Go field name %q collides with variable %q declared on line %d",
+			return fmt.Errorf("line %d: variable %q: field name %q collides with variable %q declared on line %d",
 				f.Line, f.Key, name, first.Key, first.Line)
 		}
 
@@ -70,8 +63,8 @@ func (g *gen) checkFieldNameCollisions() error {
 	return nil
 }
 
-func (g *gen) build() ([]byte, error) {
-	if err := g.checkFieldNameCollisions(); err != nil {
+func (g *goGen) build() ([]byte, error) {
+	if err := checkFieldNameCollisions(g.schema, g.fieldName); err != nil {
 		return nil, err
 	}
 
@@ -96,10 +89,15 @@ func (g *gen) build() ([]byte, error) {
 	g.writeExpandHelper(&p)
 	g.writeRegexVars(&p)
 
-	return p.Bytes(), nil
+	formatted, err := format.Source(p.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("generated source for schema %q is not valid Go: %w", g.schema.SourcePath, err)
+	}
+
+	return formatted, nil
 }
 
-func (g *gen) computeUses() error {
+func (g *goGen) computeUses() error {
 	g.uses = map[string]bool{"os": true, "strings": true}
 
 	for _, f := range g.schema.Fields {
@@ -140,7 +138,7 @@ func (g *gen) computeUses() error {
 	return nil
 }
 
-func (g *gen) expandable(f *parser.Field) bool {
+func (g *goGen) expandable(f *parser.Field) bool {
 	if f.Sensitive || f.HasRegex() {
 		return false
 	}

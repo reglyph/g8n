@@ -3,6 +3,7 @@ package naming
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // GoFieldName converts an env key into a Go identifier (CamelCase).
@@ -39,4 +40,20 @@ func GoFieldName(key string) string {
 	flush()
 
 	return b.String()
+}
+
+// TSFieldName converts an env key into a TS identifier (camelCase).
+func TSFieldName(key string) string {
+	return LowerFirst(GoFieldName(key))
+}
+
+// LowerFirst lowers the first rune of an identifier and keeps the rest as is.
+func LowerFirst(s string) string {
+	if s == "" {
+		return s
+	}
+
+	r, size := utf8.DecodeRuneInString(s)
+
+	return strings.ToLower(string(r)) + s[size:]
 }

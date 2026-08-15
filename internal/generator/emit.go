@@ -7,7 +7,7 @@ import (
 	"github.com/reglyph/g8n/internal/printer"
 )
 
-func (g *gen) writeHeader(p *printer.Printer) error {
+func (g *goGen) writeHeader(p *printer.Printer) error {
 	if g.schema.Package == "" {
 		return fmt.Errorf("package name is required")
 	}
@@ -20,7 +20,7 @@ func (g *gen) writeHeader(p *printer.Printer) error {
 	return nil
 }
 
-func (g *gen) writeImports(p *printer.Printer) {
+func (g *goGen) writeImports(p *printer.Printer) {
 	var paths []string
 	if g.uses["net/url"] {
 		paths = append(paths, "net/url")
@@ -62,7 +62,7 @@ func (g *gen) writeImports(p *printer.Printer) {
 	p.Blank()
 }
 
-func (g *gen) writeStruct(p *printer.Printer) {
+func (g *goGen) writeStruct(p *printer.Printer) {
 	p.Line("type Env struct {")
 	p.Indent()
 
@@ -75,7 +75,7 @@ func (g *gen) writeStruct(p *printer.Printer) {
 	p.Blank()
 }
 
-func (g *gen) writeStructField(p *printer.Printer, f *parser.Field) {
+func (g *goGen) writeStructField(p *printer.Printer, f *parser.Field) {
 	if f.Sensitive {
 		p.Linef("// %s (sensitive)", f.Key)
 	} else {
@@ -97,7 +97,7 @@ func (g *gen) writeStructField(p *printer.Printer, f *parser.Field) {
 	p.Blank()
 }
 
-func (g *gen) writeSensitiveKeys(p *printer.Printer) {
+func (g *goGen) writeSensitiveKeys(p *printer.Printer) {
 	p.Line("var sensitiveKeys = map[string]struct{}{")
 	p.Indent()
 
@@ -125,7 +125,7 @@ func (g *gen) writeSensitiveKeys(p *printer.Printer) {
 	p.Blank()
 }
 
-func (g *gen) writeLoaders(p *printer.Printer) error {
+func (g *goGen) writeLoaders(p *printer.Printer) error {
 	p.Line("func Load() (Env, error) {")
 	p.Indent()
 	p.Line("return LoadFrom(os.Environ())")
@@ -168,25 +168,25 @@ func (g *gen) writeLoaders(p *printer.Printer) error {
 	return nil
 }
 
-func (g *gen) writeEnumHelper(p *printer.Printer) {
+func (g *goGen) writeEnumHelper(p *printer.Printer) {
 	if !g.hasEnum {
 		return
 	}
 
-	p.WriteRaw(enumHelperSource)
+	p.WriteRaw(goEnumHelperSource)
 	p.Blank()
 }
 
-func (g *gen) writeExpandHelper(p *printer.Printer) {
+func (g *goGen) writeExpandHelper(p *printer.Printer) {
 	if !g.hasExpand {
 		return
 	}
 
-	p.WriteRaw(expandHelperSource)
+	p.WriteRaw(goExpandHelperSource)
 	p.Blank()
 }
 
-func (g *gen) writeRegexVars(p *printer.Printer) {
+func (g *goGen) writeRegexVars(p *printer.Printer) {
 	for _, f := range g.schema.Fields {
 		if !f.HasRegex() {
 			continue

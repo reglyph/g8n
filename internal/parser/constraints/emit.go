@@ -58,3 +58,13 @@ func writeConstraintError(p *printer.Printer, f *model.Field, sensitiveMsg, msg,
 
 	p.Linef("return e, fmt.Errorf(\"env: %s: %s\", %s)", f.Key, msg, src)
 }
+
+// writeTSConstraintError emits the constraint violation throw statement for the TypeScript generator.
+func writeTSConstraintError(p *printer.Printer, f *model.Field, sensitiveMsg, fullMsg string) {
+	if f.Sensitive {
+		p.Linef("throw new Error(`env: %s: %s`)", f.Key, sensitiveMsg)
+		return
+	}
+
+	p.Linef("throw new Error(`env: %s: %s`)", f.Key, fullMsg)
+}

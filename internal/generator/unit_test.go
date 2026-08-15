@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/reglyph/g8n/internal/naming"
 	"github.com/reglyph/g8n/internal/parser"
 	"github.com/reglyph/g8n/internal/spec"
 )
@@ -25,7 +26,7 @@ func TestZeroLiteral(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := zeroLiteral(c.kind); got != c.want {
+		if got := (&goGen{}).zeroLiteral(c.kind); got != c.want {
 			t.Errorf("zeroLiteral(%v) = %q, want %q", c.kind, got, c.want)
 		}
 	}
@@ -60,7 +61,7 @@ func TestLiteral(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := &gen{}
+			g := &goGen{}
 			got, err := g.literal(c.f)
 
 			if c.err && err == nil {
@@ -79,7 +80,7 @@ func TestLiteral(t *testing.T) {
 }
 
 func TestLiteralNoDefault(t *testing.T) {
-	g := &gen{}
+	g := &goGen{}
 	f := &parser.Field{Key: "K", Kind: spec.KindString}
 	if got, err := g.literal(f); err != nil || got != `""` {
 		t.Errorf("literal without default = %q, %v; want %q", got, err, `""`)
@@ -104,7 +105,7 @@ func TestExpandable(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := &gen{}
+			g := &goGen{}
 
 			if got := g.expandable(c.f); got != c.want {
 				t.Errorf("expandable = %v, want %v", got, c.want)
@@ -124,7 +125,7 @@ func TestFieldName(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		g := &gen{}
+		g := &goGen{}
 
 		if got := g.fieldName(c.in); got != c.want {
 			t.Errorf("fieldName(%q) = %q, want %q", c.in, got, c.want)
@@ -133,28 +134,26 @@ func TestFieldName(t *testing.T) {
 }
 
 func TestCheckFieldNameCollisions(t *testing.T) {
-	g := &gen{schema: &parser.Schema{Fields: []*parser.Field{
+	fieldName := (&goGen{}).fieldName
+
+	if err := checkFieldNameCollisions(&parser.Schema{Fields: []*parser.Field{
 		{Key: "A", Line: 1},
 		{Key: "B", Line: 2},
-	}}}
-
-	if err := g.checkFieldNameCollisions(); err != nil {
+	}}, fieldName); err != nil {
 		t.Fatalf("no collision expected, got %v", err)
 	}
 
-	g = &gen{schema: &parser.Schema{Fields: []*parser.Field{
+	err := checkFieldNameCollisions(&parser.Schema{Fields: []*parser.Field{
 		{Key: "DB_HOST", Line: 1},
 		{Key: "db_host", Line: 2},
-	}}}
-
-	err := g.checkFieldNameCollisions()
+	}}, fieldName)
 	if err == nil || !strings.Contains(err.Error(), "collides") {
 		t.Fatalf("want collision error, got %v", err)
 	}
 }
 
 func TestComputeUses(t *testing.T) {
-	g := &gen{schema: &parser.Schema{Fields: []*parser.Field{
+	g := &goGen{schema: &parser.Schema{Fields: []*parser.Field{
 		{Key: "A", Kind: spec.KindString},
 		{Key: "B", Kind: spec.KindEnum, Enum: []string{"x"}},
 		{Key: "C", Kind: spec.KindInt},
@@ -184,17 +183,17 @@ func TestComputeUses(t *testing.T) {
 }
 
 func TestRegexVarAndLowerFirst(t *testing.T) {
-	g := &gen{}
+	g := &goGen{}
 
 	if got := g.regexVar(&parser.Field{Key: "API_TOKEN"}); got != "apiTokenRe" {
 		t.Errorf("regexVar(API_TOKEN) = %q, want apiTokenRe", got)
 	}
 
-	if got := lowerFirst("Hello"); got != "hello" {
-		t.Errorf("lowerFirst(Hello) = %q, want hello", got)
+	if got := naming.LowerFirst("Hello"); got != "hello" {
+		t.Errorf("LowerFirst(Hello) = %q, want hello", got)
 	}
 
-	if got := lowerFirst(""); got != "" {
-		t.Errorf("lowerFirst(\"\") = %q, want empty", got)
+	if got := naming.LowerFirst(""); got != "" {
+		t.Errorf("LowerFirst(\"\") = %q, want empty", got)
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/reglyph/g8n/internal/model"
 	"github.com/reglyph/g8n/internal/printer"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 // Regex returns the @regex constraint.
@@ -37,12 +38,23 @@ func (regexConstraint) ValidateDefault(f *model.Field) error {
 	return nil
 }
 
-func (regexConstraint) Emit(p *printer.Printer, f *model.Field, src, rxVar string) {
-	p.Linef("if !%s.MatchString(%s) {", rxVar, src)
-	p.Indent()
-	writeConstraintError(p, f, "value does not match the required pattern", "value %q does not match the required pattern", src, "")
-	p.Dedent()
-	p.Line("}")
+func (regexConstraint) Emit(p *printer.Printer, f *model.Field, src, rxVar string, lang spec.Lang) {
+	switch lang {
+	case spec.LangTS:
+		p.Linef("if (!%s.test(%s)) {", rxVar, src)
+		p.Indent()
+		writeTSConstraintError(p, f,
+			"value does not match the required pattern",
+			fmt.Sprintf(`value "${%s}" does not match the required pattern`, src))
+		p.Dedent()
+		p.Line("}")
+	default:
+		p.Linef("if !%s.MatchString(%s) {", rxVar, src)
+		p.Indent()
+		writeConstraintError(p, f, "value does not match the required pattern", "value %q does not match the required pattern", src, "")
+		p.Dedent()
+		p.Line("}")
+	}
 }
 
 func (regexConstraint) Schema(f *model.Field) (FieldSchema, error) {

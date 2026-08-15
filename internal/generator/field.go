@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/reglyph/g8n/internal/naming"
 	"github.com/reglyph/g8n/internal/parser"
@@ -13,7 +12,7 @@ import (
 	"github.com/reglyph/g8n/internal/spec"
 )
 
-func (g *gen) writeFieldLoad(p *printer.Printer, f *parser.Field) error {
+func (g *goGen) writeFieldLoad(p *printer.Printer, f *parser.Field) error {
 	target := "e." + g.fieldName(f.Key)
 	key := strconv.Quote(f.Key)
 
@@ -102,7 +101,7 @@ func (g *gen) writeFieldLoad(p *printer.Printer, f *parser.Field) error {
 	return nil
 }
 
-func (g *gen) writeDefaultValue(p *printer.Printer, f *parser.Field, target string, ptr bool) error {
+func (g *goGen) writeDefaultValue(p *printer.Printer, f *parser.Field, target string, ptr bool) error {
 	lit, err := g.literal(f)
 	if err != nil {
 		return err
@@ -126,7 +125,7 @@ func (g *gen) writeDefaultValue(p *printer.Printer, f *parser.Field, target stri
 	return nil
 }
 
-func (g *gen) expandExpr(f *parser.Field, expr string) string {
+func (g *goGen) expandExpr(f *parser.Field, expr string) string {
 	if g.expandable(f) {
 		return "expandVars(" + expr + ", m)"
 	}
@@ -134,15 +133,15 @@ func (g *gen) expandExpr(f *parser.Field, expr string) string {
 	return expr
 }
 
-func (g *gen) literal(f *parser.Field) (string, error) {
+func (g *goGen) literal(f *parser.Field) (string, error) {
 	if !f.HasDefault {
-		return zeroLiteral(f.Kind), nil
+		return g.zeroLiteral(f.Kind), nil
 	}
 
-	return typedLiteral(f)
+	return g.typedLiteral(f)
 }
 
-func zeroLiteral(kind spec.Kind) string {
+func (g *goGen) zeroLiteral(kind spec.Kind) string {
 	switch kind {
 	case spec.KindInt, spec.KindPort:
 		return "0"
@@ -157,7 +156,7 @@ func zeroLiteral(kind spec.Kind) string {
 	}
 }
 
-func typedLiteral(f *parser.Field) (string, error) {
+func (g *goGen) typedLiteral(f *parser.Field) (string, error) {
 	lit, err := f.Kind.ParseLiteral(f.Default)
 	if err != nil {
 		return "", fmt.Errorf("variable %s: %w", f.Key, err)
@@ -179,7 +178,7 @@ func typedLiteral(f *parser.Field) (string, error) {
 	}
 }
 
-func (g *gen) writeConversion(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
+func (g *goGen) writeConversion(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
 	if err := g.writeParseAndAssign(p, f, target, src, ptr); err != nil {
 		return err
 	}
@@ -193,14 +192,14 @@ func (g *gen) writeConversion(p *printer.Printer, f *parser.Field, target, src s
 	return g.writeAssignment(p, f, target, src, ptr)
 }
 
-func (g *gen) writeParseAndAssign(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
+func (g *goGen) writeParseAndAssign(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
 	switch f.Kind {
 	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
 
 	case spec.KindBool:
 		p.Linef("b, convErr := strconv.ParseBool(%s)", src)
 		constraints.WriteConvCheck(p, f, "a boolean", src)
-		assignPointerOrValue(p, target, "b", ptr)
+		g.assignPointerOrValue(p, target, "b", ptr)
 
 	case spec.KindInt, spec.KindPort:
 		p.Linef("n, convErr := strconv.Atoi(%s)", src)
@@ -214,17 +213,17 @@ func (g *gen) writeParseAndAssign(p *printer.Printer, f *parser.Field, target, s
 			p.Line("}")
 		}
 
-		assignPointerOrValue(p, target, "n", ptr)
+		g.assignPointerOrValue(p, target, "n", ptr)
 
 	case spec.KindInt64:
 		p.Linef("n, convErr := strconv.ParseInt(%s, 10, 64)", src)
 		constraints.WriteConvCheck(p, f, "an int64", src)
-		assignPointerOrValue(p, target, "n", ptr)
+		g.assignPointerOrValue(p, target, "n", ptr)
 
 	case spec.KindFloat64:
 		p.Linef("fv, convErr := strconv.ParseFloat(%s, 64)", src)
 		constraints.WriteConvCheck(p, f, "a float64", src)
-		assignPointerOrValue(p, target, "fv", ptr)
+		g.assignPointerOrValue(p, target, "fv", ptr)
 
 	default:
 		return fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
@@ -233,7 +232,7 @@ func (g *gen) writeParseAndAssign(p *printer.Printer, f *parser.Field, target, s
 	return nil
 }
 
-func assignPointerOrValue(p *printer.Printer, target, name string, ptr bool) {
+func (g *goGen) assignPointerOrValue(p *printer.Printer, target, name string, ptr bool) {
 	if ptr {
 		p.Linef("%s = &%s", target, name)
 		return
@@ -242,7 +241,7 @@ func assignPointerOrValue(p *printer.Printer, target, name string, ptr bool) {
 	p.Linef("%s = %s", target, name)
 }
 
-func (g *gen) writeValueCheck(p *printer.Printer, f *parser.Field, src string) error {
+func (g *goGen) writeValueCheck(p *printer.Printer, f *parser.Field, src string) error {
 	switch f.Kind {
 	case spec.KindURL:
 		p.Linef("if _, convErr := url.ParseRequestURI(%s); convErr != nil {", src)
@@ -283,21 +282,21 @@ func (g *gen) writeValueCheck(p *printer.Printer, f *parser.Field, src string) e
 	return nil
 }
 
-func (g *gen) writeConstraints(p *printer.Printer, f *parser.Field, src string) {
+func (g *goGen) writeConstraints(p *printer.Printer, f *parser.Field, src string) {
 	cs := parser.BuildConstraints(f)
 	if len(cs) == 0 {
 		return
 	}
 
 	for _, c := range cs {
-		c.Emit(p, f, src, g.regexVar(f))
+		c.Emit(p, f, src, g.regexVar(f), spec.LangGo)
 	}
 }
 
-func (g *gen) writeAssignment(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
+func (g *goGen) writeAssignment(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
 	switch f.Kind {
 	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
-		assignPointerOrValue(p, target, src, ptr)
+		g.assignPointerOrValue(p, target, src, ptr)
 
 	case spec.KindInt, spec.KindInt64, spec.KindBool, spec.KindFloat64, spec.KindPort:
 		// assigned in writeParseAndAssign
@@ -309,16 +308,6 @@ func (g *gen) writeAssignment(p *printer.Printer, f *parser.Field, target, src s
 	return nil
 }
 
-func (g *gen) regexVar(f *parser.Field) string {
-	return lowerFirst(naming.GoFieldName(f.Key)) + "Re"
-}
-
-func lowerFirst(s string) string {
-	if s == "" {
-		return s
-	}
-
-	r, size := utf8.DecodeRuneInString(s)
-
-	return strings.ToLower(string(r)) + s[size:]
+func (g *goGen) regexVar(f *parser.Field) string {
+	return naming.LowerFirst(naming.GoFieldName(f.Key)) + "Re"
 }

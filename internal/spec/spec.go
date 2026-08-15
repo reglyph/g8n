@@ -37,6 +37,7 @@ const (
 type Spec struct {
 	Name          string
 	GoType        string
+	TSType        string
 	JSONType      string
 	JSONFormat    string
 	StringLike    bool
@@ -47,23 +48,23 @@ type Spec struct {
 func (k Kind) Spec() Spec {
 	switch k {
 	case KindInt:
-		return Spec{Name: "int", GoType: "int", JSONType: "integer"}
+		return Spec{Name: "int", GoType: "int", TSType: "number", JSONType: "integer"}
 	case KindInt64:
-		return Spec{Name: "int64", GoType: "int64", JSONType: "integer"}
+		return Spec{Name: "int64", GoType: "int64", TSType: "number", JSONType: "integer"}
 	case KindBool:
-		return Spec{Name: "bool", GoType: "bool", JSONType: "boolean"}
+		return Spec{Name: "bool", GoType: "bool", TSType: "boolean", JSONType: "boolean"}
 	case KindFloat64:
-		return Spec{Name: "float64", GoType: "float64", JSONType: "number"}
+		return Spec{Name: "float64", GoType: "float64", TSType: "number", JSONType: "number"}
 	case KindPort:
-		return Spec{Name: "port", GoType: "int", JSONType: "integer"}
+		return Spec{Name: "port", GoType: "int", TSType: "number", JSONType: "integer"}
 	case KindURL:
-		return Spec{Name: "url", GoType: "string", JSONType: "string", JSONFormat: "uri", StringLike: true, Constrainable: true}
+		return Spec{Name: "url", GoType: "string", TSType: "string", JSONType: "string", JSONFormat: "uri", StringLike: true, Constrainable: true}
 	case KindEmail:
-		return Spec{Name: "email", GoType: "string", JSONType: "string", JSONFormat: "email", StringLike: true, Constrainable: true}
+		return Spec{Name: "email", GoType: "string", TSType: "string", JSONType: "string", JSONFormat: "email", StringLike: true, Constrainable: true}
 	case KindEnum:
-		return Spec{Name: "enum", GoType: "string", JSONType: "string", StringLike: true}
+		return Spec{Name: "enum", GoType: "string", TSType: "string", JSONType: "string", StringLike: true}
 	default:
-		return Spec{Name: "string", GoType: "string", JSONType: "string", StringLike: true, Constrainable: true}
+		return Spec{Name: "string", GoType: "string", TSType: "string", JSONType: "string", StringLike: true, Constrainable: true}
 	}
 }
 
