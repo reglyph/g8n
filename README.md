@@ -23,6 +23,10 @@ validation, and metadata.
 ## Installation
 
 ```bash
+# with Homebrew
+brew install reglyph/tap/g8n
+
+# or directly from source
 go install github.com/reglyph/g8n/cmd/g8n@latest
 ```
 
@@ -74,9 +78,12 @@ LOG_LEVEL=
 # With flags
 g8n -schema example.env.schema -out internal/config/env.go
 
-# OR just
+# OR just g8n (uses the @out decorator from the schema)
 g8n
 ```
+
+![usage.png](assets/usage.png)
+![overlays.png](assets/overlays.png)
 
 ### 3. Usage in application code
 
@@ -101,12 +108,6 @@ func main() {
 }
 ```
 
----
-
-![usage.png](assets/usage.png)
-
----
-
 ## Validators & expansion
 
 ```envschema
@@ -128,8 +129,8 @@ KEY=${DOES_NOT_EXIST}
 Expansion rules:
 
 - String‑typed values (`string`, `url`, `email`, `enum`) are expanded – both from environment and defaults. Numeric and
-  boolean types are not expanded: ${...} in their default is a schema‑parsing error.
-- `@sensitive` fields and fields with `@regex `are not expanded (the regex is applied to the raw value).
+  boolean types are not expanded: `${...}` in their default is a schema‑parsing error.
+- `@sensitive` fields and fields with `@regex` are not expanded (the regex is applied to the raw value).
 - A default containing `${...}` bypasses static checks; the final value is validated at `Load()` after substitution. For
   `url`/`email`/`enum`, an invalid (including unresolved) result is a `Load()` error; for string, any string is valid,
   so an unresolved reference remains as is.
@@ -141,17 +142,24 @@ Static checks during generation:
 - Numeric and boolean defaults are canonicalised to valid Go literals (`08` → `8`, `TRUE` → `true`).
 - Two variables that map to the same Go field name (`DB_HOST` and `db_host` → `DbHost`) cause a generation error.
 
-## Multi-file overlays
+## Field naming
 
-Overlay file names are fixed and independent of the base schema name:
+Env keys are converted to Go identifiers with `naming.GoFieldName`: non‑alphanumeric characters split words, every word
+is capitalised (`APP_ENV` → `AppEnv`, `FEATURE_V_2` → `FeatureV2`). Decorative prefixes are not stripped. When the
+package name is derived from the output directory it is sanitised, prefixed with `env_` if it starts with a digit, and
+a directory that would yield a Go keyword is rejected.
 
-| Order | File         | When applied               |
-|-------|--------------|----------------------------|
-| 1     | `.env.local` | always, if the file exists |
-| 2     | `.env.<env>` | if `-env <env>` is given   |
+## JSON Schema
 
-Overlays add new variables and completely replace the declaration of a variable with the same key (you must repeat its
-decorators if needed). Root decorators are taken only from the base schema. Missing overlay files are not an error.
+With `-json <path>`, `g8n` emits a JSON Schema draft-07 document instead of Go code:
+
+```bash
+g8n -schema example.env.schema -json internal/config/env.schema.json
+```
+
+The document declares an `object` with one property per variable: `type`, optional `description` (from `@docs`),
+`default`, `enum` (from `@type=enum(...)`), `format` (`uri` for `url`, `email` for `email`), `pattern` (from `@regex`)
+and numeric `minimum`/`maximum` bounds (for `port`). Variables marked `@required` are listed in `required`.
 
 ## License
 
