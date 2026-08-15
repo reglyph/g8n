@@ -8,74 +8,76 @@ import (
 
 	"github.com/reglyph/g8n/internal/naming"
 	"github.com/reglyph/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/parser/constraints"
+	"github.com/reglyph/g8n/internal/printer"
 	"github.com/reglyph/g8n/internal/spec"
 )
 
-func (g *gen) writeFieldLoad(p *printer, f *parser.Field) error {
+func (g *gen) writeFieldLoad(p *printer.Printer, f *parser.Field) error {
 	target := "e." + g.fieldName(f.Key)
 	key := strconv.Quote(f.Key)
 
 	hasDefault := f.HasDefault && !f.Sensitive
 	expand := g.expandable(f)
-	expandStmt := func(p *printer, src string) {
+	expandStmt := func(p *printer.Printer, src string) {
 		if expand {
-			p.linef("%s = expandVars(%s, m)", src, src)
+			p.Linef("%s = expandVars(%s, m)", src, src)
 		}
 	}
 
 	if f.Required {
 		if !hasDefault {
-			p.line("{")
-			p.indent()
-			p.linef("v, ok := m[%s]", key)
-			p.line("if !ok || v == \"\" {")
-			p.indent()
-			p.linef("return e, fmt.Errorf(\"env: required variable %%q is missing or empty\", %s)", key)
-			p.dedent()
-			p.line("}")
+			p.Line("{")
+			p.Indent()
+			p.Linef("v, ok := m[%s]", key)
+			p.Line("if !ok || v == \"\" {")
+			p.Indent()
+			p.Linef("return e, fmt.Errorf(\"env: required variable %%q is missing or empty\", %s)", key)
+			p.Dedent()
+			p.Line("}")
 			expandStmt(p, "v")
 
 			if err := g.writeConversion(p, f, target, "v", false); err != nil {
 				return err
 			}
 
-			p.dedent()
-			p.line("}")
+			p.Dedent()
+			p.Line("}")
 
 			return nil
 		}
 
-		p.line("{")
-		p.indent()
-		p.linef("v, ok := m[%s]", key)
-		p.line("if !ok || v == \"\" {")
-		p.indent()
+		p.Line("{")
+		p.Indent()
+		p.Linef("v, ok := m[%s]", key)
+		p.Line("if !ok || v == \"\" {")
+		p.Indent()
 
 		if err := g.writeDefaultValue(p, f, target, false); err != nil {
 			return err
 		}
 
-		p.dedent()
-		p.line("} else {")
-		p.indent()
+		p.Dedent()
+		p.Line("} else {")
+		p.Indent()
 		expandStmt(p, "v")
 
 		if err := g.writeConversion(p, f, target, "v", false); err != nil {
 			return err
 		}
 
-		p.dedent()
-		p.line("}")
-		p.dedent()
-		p.line("}")
+		p.Dedent()
+		p.Line("}")
+		p.Dedent()
+		p.Line("}")
 
 		return nil
 	}
 
-	p.line("{")
-	p.indent()
-	p.linef("if v, ok := m[%s]; ok && v != \"\" {", key)
-	p.indent()
+	p.Line("{")
+	p.Indent()
+	p.Linef("if v, ok := m[%s]; ok && v != \"\" {", key)
+	p.Indent()
 	expandStmt(p, "v")
 
 	if err := g.writeConversion(p, f, target, "v", true); err != nil {
@@ -83,43 +85,43 @@ func (g *gen) writeFieldLoad(p *printer, f *parser.Field) error {
 	}
 
 	if hasDefault {
-		p.dedent()
-		p.line("} else {")
-		p.indent()
+		p.Dedent()
+		p.Line("} else {")
+		p.Indent()
 
 		if err := g.writeDefaultValue(p, f, target, true); err != nil {
 			return err
 		}
 	}
 
-	p.dedent()
-	p.line("}")
-	p.dedent()
-	p.line("}")
+	p.Dedent()
+	p.Line("}")
+	p.Dedent()
+	p.Line("}")
 
 	return nil
 }
 
-func (g *gen) writeDefaultValue(p *printer, f *parser.Field, target string, ptr bool) error {
+func (g *gen) writeDefaultValue(p *printer.Printer, f *parser.Field, target string, ptr bool) error {
 	lit, err := g.literal(f)
 	if err != nil {
 		return err
 	}
 
 	if f.Kind.IsStringLike() {
-		p.linef("t := %s", g.expandExpr(f, lit))
+		p.Linef("t := %s", g.expandExpr(f, lit))
 
 		return g.writeConversion(p, f, target, "t", ptr)
 	}
 
 	if ptr {
-		p.linef("t := %s", lit)
-		p.linef("%s = &t", target)
+		p.Linef("t := %s", lit)
+		p.Linef("%s = &t", target)
 
 		return nil
 	}
 
-	p.linef("%s = %s", target, lit)
+	p.Linef("%s = %s", target, lit)
 
 	return nil
 }
@@ -192,7 +194,7 @@ func typedLiteral(f *parser.Field) (string, error) {
 	}
 }
 
-func (g *gen) writeConversion(p *printer, f *parser.Field, target, src string, ptr bool) error {
+func (g *gen) writeConversion(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
 	if err := g.writeParseAndAssign(p, f, target, src, ptr); err != nil {
 		return err
 	}
@@ -206,37 +208,37 @@ func (g *gen) writeConversion(p *printer, f *parser.Field, target, src string, p
 	return g.writeAssignment(p, f, target, src, ptr)
 }
 
-func (g *gen) writeParseAndAssign(p *printer, f *parser.Field, target, src string, ptr bool) error {
+func (g *gen) writeParseAndAssign(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
 	switch f.Kind {
 	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
 
 	case spec.KindBool:
-		p.linef("b, convErr := strconv.ParseBool(%s)", src)
-		g.writeConvCheck(p, f, "a boolean", src)
+		p.Linef("b, convErr := strconv.ParseBool(%s)", src)
+		constraints.WriteConvCheck(p, f, "a boolean", src)
 		assignPointerOrValue(p, target, "b", ptr)
 
 	case spec.KindInt, spec.KindPort:
-		p.linef("n, convErr := strconv.Atoi(%s)", src)
-		g.writeConvCheck(p, f, "an integer", src)
+		p.Linef("n, convErr := strconv.Atoi(%s)", src)
+		constraints.WriteConvCheck(p, f, "an integer", src)
 
 		if f.Kind.IsPort() {
-			p.linef("if n < %d || n > %d {", spec.PortMin, spec.PortMax)
-			p.indent()
-			writePortError(p, f)
-			p.dedent()
-			p.line("}")
+			p.Linef("if n < %d || n > %d {", spec.PortMin, spec.PortMax)
+			p.Indent()
+			constraints.WritePortError(p, f)
+			p.Dedent()
+			p.Line("}")
 		}
 
 		assignPointerOrValue(p, target, "n", ptr)
 
 	case spec.KindInt64:
-		p.linef("n, convErr := strconv.ParseInt(%s, 10, 64)", src)
-		g.writeConvCheck(p, f, "an int64", src)
+		p.Linef("n, convErr := strconv.ParseInt(%s, 10, 64)", src)
+		constraints.WriteConvCheck(p, f, "an int64", src)
 		assignPointerOrValue(p, target, "n", ptr)
 
 	case spec.KindFloat64:
-		p.linef("fv, convErr := strconv.ParseFloat(%s, 64)", src)
-		g.writeConvCheck(p, f, "a float64", src)
+		p.Linef("fv, convErr := strconv.ParseFloat(%s, 64)", src)
+		constraints.WriteConvCheck(p, f, "a float64", src)
 		assignPointerOrValue(p, target, "fv", ptr)
 
 	default:
@@ -246,58 +248,32 @@ func (g *gen) writeParseAndAssign(p *printer, f *parser.Field, target, src strin
 	return nil
 }
 
-func (g *gen) writeConvCheck(p *printer, f *parser.Field, what, src string) {
-	p.line("if convErr != nil {")
-	p.indent()
-	writeParseError(p, f, what, src)
-	p.dedent()
-	p.line("}")
-}
-
-func writeParseError(p *printer, f *parser.Field, what, src string) {
-	if f.Sensitive {
-		p.linef("return e, fmt.Errorf(\"env: %s: value is not %s\")", f.Key, what)
-		return
-	}
-
-	p.linef("return e, fmt.Errorf(\"env: %s: value %%q is not %s: %%w\", %s, convErr)", f.Key, what, src)
-}
-
-func writePortError(p *printer, f *parser.Field) {
-	if f.Sensitive {
-		p.linef("return e, fmt.Errorf(\"env: %s: port is out of range %d..%d\")", f.Key, spec.PortMin, spec.PortMax)
-		return
-	}
-
-	p.linef("return e, fmt.Errorf(\"env: %s: port %%d is out of range %d..%d\", n)", f.Key, spec.PortMin, spec.PortMax)
-}
-
-func assignPointerOrValue(p *printer, target, name string, ptr bool) {
+func assignPointerOrValue(p *printer.Printer, target, name string, ptr bool) {
 	if ptr {
-		p.linef("%s = &%s", target, name)
+		p.Linef("%s = &%s", target, name)
 		return
 	}
 
-	p.linef("%s = %s", target, name)
+	p.Linef("%s = %s", target, name)
 }
 
-func (g *gen) writeValueCheck(p *printer, f *parser.Field, src string) error {
+func (g *gen) writeValueCheck(p *printer.Printer, f *parser.Field, src string) error {
 	switch f.Kind {
 	case spec.KindURL:
-		p.linef("if _, convErr := url.ParseRequestURI(%s); convErr != nil {", src)
-		p.indent()
-		writeValueError(p, f, "value is not a valid URL", "value %q is not a valid URL", src)
-		p.dedent()
-		p.line("}")
+		p.Linef("if _, convErr := url.ParseRequestURI(%s); convErr != nil {", src)
+		p.Indent()
+		constraints.WriteValueError(p, f, "value is not a valid URL", "value %q is not a valid URL", src)
+		p.Dedent()
+		p.Line("}")
 
 	case spec.KindEmail:
-		p.linef("at := strings.IndexByte(%s, '@')", src)
-		p.linef("dot := strings.LastIndexByte(%s, '.')", src)
-		p.line("if at <= 0 || dot <= at+1 {")
-		p.indent()
-		writeValueError(p, f, "value is not a valid email", "value %q is not a valid email", src)
-		p.dedent()
-		p.line("}")
+		p.Linef("at := strings.IndexByte(%s, '@')", src)
+		p.Linef("dot := strings.LastIndexByte(%s, '.')", src)
+		p.Line("if at <= 0 || dot <= at+1 {")
+		p.Indent()
+		constraints.WriteValueError(p, f, "value is not a valid email", "value %q is not a valid email", src)
+		p.Dedent()
+		p.Line("}")
 
 	case spec.KindEnum:
 		quoted := make([]string, 0, len(f.Enum))
@@ -306,11 +282,11 @@ func (g *gen) writeValueCheck(p *printer, f *parser.Field, src string) error {
 			quoted = append(quoted, strconv.Quote(v))
 		}
 
-		p.linef("if !envContains([]string{%s}, %s) {", strings.Join(quoted, ", "), src)
-		p.indent()
-		writeValueError(p, f, "value is not in the allowed list", "value %q is not in the allowed list ["+strings.Join(f.Enum, ", ")+"]", src)
-		p.dedent()
-		p.line("}")
+		p.Linef("if !envContains([]string{%s}, %s) {", strings.Join(quoted, ", "), src)
+		p.Indent()
+		constraints.WriteValueError(p, f, "value is not in the allowed list", "value %q is not in the allowed list ["+strings.Join(f.Enum, ", ")+"]", src)
+		p.Dedent()
+		p.Line("}")
 
 	case spec.KindString, spec.KindInt, spec.KindInt64, spec.KindBool, spec.KindFloat64, spec.KindPort:
 		// nothing to validate
@@ -322,52 +298,18 @@ func (g *gen) writeValueCheck(p *printer, f *parser.Field, src string) error {
 	return nil
 }
 
-func writeValueError(p *printer, f *parser.Field, sensitiveMsg, msg, src string) {
-	if f.Sensitive {
-		p.linef("return e, fmt.Errorf(\"env: %s: %s\")", f.Key, sensitiveMsg)
+func (g *gen) writeConstraints(p *printer.Printer, f *parser.Field, src string) {
+	cs := parser.BuildConstraints(f)
+	if len(cs) == 0 {
 		return
 	}
 
-	p.linef("return e, fmt.Errorf(\"env: %s: %s\", %s)", f.Key, msg, src)
-}
-
-func (g *gen) writeConstraints(p *printer, f *parser.Field, src string) {
-	if !f.Kind.IsConstrainable() || (f.StartsWith == "" && !f.HasRegex()) {
-		return
-	}
-
-	if f.StartsWith != "" {
-		p.linef("if !strings.HasPrefix(%s, %q) {", src, f.StartsWith)
-		p.indent()
-		writeConstraintError(p, f, "value does not start with the required prefix", "value %q does not start with %q", src, strconv.Quote(f.StartsWith))
-		p.dedent()
-		p.line("}")
-	}
-
-	if f.HasRegex() {
-		p.linef("if !%s.MatchString(%s) {", g.regexVar(f), src)
-		p.indent()
-		writeConstraintError(p, f, "value does not match the required pattern", "value %q does not match the required pattern", src, "")
-		p.dedent()
-		p.line("}")
+	for _, c := range cs {
+		c.Emit(p, f, src, g.regexVar(f))
 	}
 }
 
-func writeConstraintError(p *printer, f *parser.Field, sensitiveMsg, msg, src, extra string) {
-	if f.Sensitive {
-		p.linef("return e, fmt.Errorf(\"env: %s: %s\")", f.Key, sensitiveMsg)
-		return
-	}
-
-	if extra != "" {
-		p.linef("return e, fmt.Errorf(\"env: %s: %s\", %s, %s)", f.Key, msg, src, extra)
-		return
-	}
-
-	p.linef("return e, fmt.Errorf(\"env: %s: %s\", %s)", f.Key, msg, src)
-}
-
-func (g *gen) writeAssignment(p *printer, f *parser.Field, target, src string, ptr bool) error {
+func (g *gen) writeAssignment(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {
 	switch f.Kind {
 	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
 		assignPointerOrValue(p, target, src, ptr)

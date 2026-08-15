@@ -2,12 +2,12 @@ package generator
 
 import (
 	"fmt"
-	"strings"
 
 	"go/format"
 
 	"github.com/reglyph/g8n/internal/naming"
 	"github.com/reglyph/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/printer"
 	"github.com/reglyph/g8n/internal/spec"
 )
 
@@ -34,36 +34,6 @@ func Generate(s *parser.Schema) ([]byte, error) {
 	}
 
 	return formatted, nil
-}
-
-type printer struct {
-	buf   strings.Builder
-	depth int
-}
-
-func (p *printer) indent() { p.depth++ }
-func (p *printer) dedent() { p.depth-- }
-
-func (p *printer) line(s string) {
-	p.buf.WriteString(strings.Repeat("\t", p.depth))
-	p.buf.WriteString(s)
-	p.buf.WriteByte('\n')
-}
-
-func (p *printer) linef(f string, args ...any) {
-	p.line(fmt.Sprintf(f, args...))
-}
-
-func (p *printer) blank() {
-	p.buf.WriteByte('\n')
-}
-
-func (p *printer) writeRaw(s string) {
-	p.buf.WriteString(s)
-}
-
-func (p *printer) bytes() []byte {
-	return []byte(p.buf.String())
 }
 
 type gen struct {
@@ -109,7 +79,7 @@ func (g *gen) build() ([]byte, error) {
 		return nil, err
 	}
 
-	var p printer
+	var p printer.Printer
 	if err := g.writeHeader(&p); err != nil {
 		return nil, err
 	}
@@ -126,7 +96,7 @@ func (g *gen) build() ([]byte, error) {
 	g.writeExpandHelper(&p)
 	g.writeRegexVars(&p)
 
-	return p.bytes(), nil
+	return p.Bytes(), nil
 }
 
 func (g *gen) computeUses() error {

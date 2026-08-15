@@ -3,15 +3,96 @@ package parser
 import (
 	"strings"
 
+	"github.com/reglyph/g8n/internal/parser/constraints"
 	"github.com/reglyph/g8n/internal/spec"
 )
 
-type warnf func(message string, args ...any)
+// decorator describes one field decorator: which syntaxes it supports and
+// how it is applied. Constraint-style decorators additionally carry the
+// validation, emission and JSON Schema logic.
+type decorator struct {
+	name string
 
-// HasRegex reports whether the field declares a regex constraint.
-func (f *Field) HasRegex() bool {
-	return f.Regex != ""
+	// supported forms
+	standalone  bool // @name=value as the whole line
+	token       bool // @name=value among other tokens on one line
+	option      bool // name=value inside @type=(...)
+	singleToken bool // standalone form requires exactly one token
+
+	apply    func(f *Field, val string, warn warnf) // standalone and token forms
+	applyOpt func(f *Field, val string, warn warnf) // @type option form; falls back to apply
+
+	constraint Constraint
 }
+
+// decorators is the registry of field decorators. Standalone matching order
+// matters and must be preserved when adding entries.
+var decorators []*decorator
+
+// BuildConstraints returns the constraints present on the field, in the
+// order their checks must run: startsWith, regex, then min and max.
+func BuildConstraints(f *Field) []Constraint {
+	var out []Constraint
+
+	for _, d := range decorators {
+		if d.constraint == nil {
+			continue
+		}
+
+		if c := d.constraint; c.Present(f) {
+			out = append(out, c)
+		}
+	}
+
+	return out
+}
+
+func init() {
+	decorators = []*decorator{
+		{name: "docs", standalone: true, token: true, apply: func(f *Field, val string, warn warnf) {
+			if val != "" {
+				f.Docs = append(f.Docs, val)
+			}
+		}},
+		{name: "default", standalone: true, token: true, apply: func(f *Field, val string, warn warnf) {
+			if val != "" {
+				f.Default = val
+				f.HasDefault = true
+			}
+		}},
+		{name: "startsWith", standalone: true, option: true,
+			apply:      func(f *Field, val string, warn warnf) { applyStringConstraint(f, "@startsWith", val, warn) },
+			applyOpt:   func(f *Field, val string, warn warnf) { applyStringConstraint(f, "startsWith", val, warn) },
+			constraint: constraints.StartsWith(),
+		},
+		{name: "regex", standalone: true, option: true,
+			apply:      func(f *Field, val string, warn warnf) { applyStringConstraint(f, "@regex", val, warn) },
+			applyOpt:   func(f *Field, val string, warn warnf) { applyStringConstraint(f, "regex", val, warn) },
+			constraint: constraints.Regex(),
+		},
+		{name: "type", standalone: true, singleToken: true, token: true,
+			apply: func(f *Field, val string, warn warnf) { applyType(f, val, warn) },
+		},
+		{name: "required", token: true, apply: func(f *Field, val string, warn warnf) {
+			f.Required = true
+		}},
+		{name: "sensitive", token: true, apply: func(f *Field, val string, warn warnf) {
+			f.Sensitive = true
+		}},
+	}
+}
+
+func lookupDecorator(name string) *decorator {
+	for _, d := range decorators {
+		if d.name == name {
+			return d
+		}
+	}
+
+	return nil
+}
+
+type warnf func(message string, args ...any)
 
 func isComment(line string) bool {
 	return strings.HasPrefix(line, "#")
@@ -139,60 +220,38 @@ func parseFieldDecorators(f *Field, body string, warn warnf) {
 			name, arg = tok[:i], tok[i+1:]
 		}
 
-		switch name {
-		case "@type":
-			applyType(f, arg, warn)
-		case "@required":
-			f.Required = true
-		case "@sensitive":
-			f.Sensitive = true
-		case "@default":
-			if arg != "" {
-				f.Default = arg
-				f.HasDefault = true
-			}
-		case "@docs":
-			if arg != "" {
-				f.Docs = append(f.Docs, arg)
-			}
-		default:
+		d := lookupDecorator(strings.TrimPrefix(name, "@"))
+
+		if d == nil || !d.token {
 			warn("unknown decorator %s", name)
+			continue
 		}
+
+		d.apply(f, arg, warn)
 	}
 }
 
 // parseSingleDecorator handles decorators that take the whole line as their
 // argument. It reports whether the body was fully consumed.
 func parseSingleDecorator(f *Field, body string, warn warnf) bool {
-	if strings.HasPrefix(body, "@docs=") {
-		if v := strings.TrimSpace(strings.TrimPrefix(body, "@docs=")); v != "" {
-			f.Docs = append(f.Docs, v)
+	for _, d := range decorators {
+		if !d.standalone {
+			continue
 		}
 
-		return true
-	}
+		prefix := "@" + d.name + "="
 
-	if strings.HasPrefix(body, "@default=") {
-		if v := strings.TrimSpace(strings.TrimPrefix(body, "@default=")); v != "" {
-			f.Default = v
-			f.HasDefault = true
+		if !strings.HasPrefix(body, prefix) {
+			continue
 		}
 
-		return true
-	}
+		if d.singleToken && len(splitDecoratorTokens(body)) != 1 {
+			continue
+		}
 
-	if strings.HasPrefix(body, "@startsWith=") {
-		applyStringConstraint(f, "@startsWith", strings.TrimSpace(strings.TrimPrefix(body, "@startsWith=")), warn)
-		return true
-	}
+		val := strings.TrimSpace(strings.TrimPrefix(body, prefix))
+		d.apply(f, val, warn)
 
-	if strings.HasPrefix(body, "@regex=") {
-		applyStringConstraint(f, "@regex", strings.TrimSpace(strings.TrimPrefix(body, "@regex=")), warn)
-		return true
-	}
-
-	if strings.HasPrefix(body, "@type=") && len(splitDecoratorTokens(body)) == 1 {
-		applyType(f, strings.TrimSpace(strings.TrimPrefix(body, "@type=")), warn)
 		return true
 	}
 
@@ -300,36 +359,20 @@ func applyTypeOptions(f *Field, options string, warn warnf) {
 
 		k, v := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
 
-		switch k {
-		case "startsWith":
-			if !f.Kind.IsConstrainable() {
-				warn("startsWith is only supported for string-like types, ignoring for %q", f.Kind)
-				continue
-			}
+		d := lookupDecorator(k)
 
-			if v == "" {
-				warn("startsWith requires a non-empty value")
-				continue
-			}
-
-			f.StartsWith = v
-
-		case "regex":
-			if !f.Kind.IsConstrainable() {
-				warn("regex is only supported for string-like types, ignoring for %q", f.Kind)
-				continue
-			}
-
-			if v == "" {
-				warn("regex requires a non-empty value")
-				continue
-			}
-
-			f.Regex = v
-
-		default:
+		if d == nil || !d.option {
 			warn("unknown @type option %q", k)
+			continue
 		}
+
+		apply := d.apply
+
+		if d.applyOpt != nil {
+			apply = d.applyOpt
+		}
+
+		apply(f, v, warn)
 	}
 }
 
@@ -344,10 +387,10 @@ func applyStringConstraint(f *Field, decorator, val string, warn warnf) {
 		return
 	}
 
-	switch decorator {
-	case "@startsWith":
+	switch strings.TrimPrefix(decorator, "@") {
+	case "startsWith":
 		f.StartsWith = val
-	case "@regex":
+	case "regex":
 		f.Regex = val
 	}
 }

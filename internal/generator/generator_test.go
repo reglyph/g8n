@@ -71,6 +71,15 @@ SERVICE=
 
 # @type=string(regex=^[a-f0-9]{32}$)
 TOKEN=
+
+# @type=port
+WEB_PORT=
+
+# @type=string
+NAME=
+
+# @type=float64
+RATIO=
 `
 
 const minimalSchema = `# @package=env
@@ -174,6 +183,7 @@ func typeCheck(t *testing.T, src []byte) {
 		t.Fatalf("generated code does not parse: %v\n%s", err, src)
 	}
 
+	//goland:noinspection GoDeprecation && TODO
 	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
 	if _, err := conf.Check("env", fset, []*ast.File{f}, nil); err != nil {
 		t.Fatalf("generated code does not type-check: %v\n%s", err, src)

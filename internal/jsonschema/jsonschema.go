@@ -3,7 +3,6 @@ package jsonschema
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strconv"
 
 	"github.com/reglyph/g8n/internal/parser"
@@ -18,8 +17,8 @@ type Field struct {
 	Enum        []string        `json:"enum,omitempty"`
 	Format      string          `json:"format,omitempty"`
 	Pattern     string          `json:"pattern,omitempty"`
-	Min         *int            `json:"minimum,omitempty"`
-	Max         *int            `json:"maximum,omitempty"`
+	Min         *float64        `json:"minimum,omitempty"`
+	Max         *float64        `json:"maximum,omitempty"`
 }
 
 // Schema is a JSON Schema draft-07 document for an env schema.
@@ -78,27 +77,36 @@ func fieldSchema(f *parser.Field) (*Field, error) {
 	}
 
 	if f.Kind.IsPort() {
-		portMin, portMax := spec.PortMin, spec.PortMax
+		portMin, portMax := float64(spec.PortMin), float64(spec.PortMax)
 		out.Min, out.Max = &portMin, &portMax
+	}
+
+	for _, c := range parser.BuildConstraints(f) {
+		cs, err := c.Schema(f)
+		if err != nil {
+			return nil, err
+		}
+
+		mergeSchemaKeywords(out, cs)
 	}
 
 	if f.Kind == spec.KindEnum {
 		out.Enum = f.Enum
 	}
 
-	if f.StartsWith != "" {
-		out.Pattern = "^" + regexp.QuoteMeta(f.StartsWith)
-	}
-
-	if f.Regex != "" {
-		if out.Pattern != "" {
-			out.Pattern = "(?=" + out.Pattern + ")(?:" + f.Regex + ")"
-		} else {
-			out.Pattern = f.Regex
-		}
-	}
-
 	return out, nil
+}
+
+func mergeSchemaKeywords(out *Field, cs parser.FieldSchema) {
+	if cs.Pattern == "" {
+		return
+	}
+
+	if out.Pattern != "" {
+		out.Pattern = "(?=" + out.Pattern + ")(?:" + cs.Pattern + ")"
+	} else {
+		out.Pattern = cs.Pattern
+	}
 }
 
 // defaultJSON encodes the schema default with its JSON type.

@@ -1,21 +1,20 @@
 package parser
 
-import "github.com/reglyph/g8n/internal/spec"
+import (
+	"github.com/reglyph/g8n/internal/model"
+	"github.com/reglyph/g8n/internal/parser/constraints"
+)
 
-// Field describes one environment variable declared in the schema.
-type Field struct {
-	Key        string
-	Kind       spec.Kind
-	Required   bool
-	Sensitive  bool
-	HasDefault bool
-	Default    string
-	Enum       []string
-	StartsWith string
-	Regex      string
-	Docs       []string
-	Line       int
-}
+// Field is the environment variable declaration, defined in internal/model.
+type Field = model.Field
+
+// Constraint is the decorator-backed rule on a field, defined in
+// internal/parser/constraints.
+type Constraint = constraints.Constraint
+
+// FieldSchema describes the JSON Schema keywords a constraint
+// contributes, defined in internal/parser/constraints.
+type FieldSchema = constraints.FieldSchema
 
 // Schema is the parsed representation of an .env.schema file.
 type Schema struct {

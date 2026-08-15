@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +16,15 @@ type Env struct {
 
 	// TOKEN
 	Token *string `env:"TOKEN"`
+
+	// WEB_PORT
+	WebPort *int `env:"WEB_PORT"`
+
+	// NAME
+	Name *string `env:"NAME"`
+
+	// RATIO
+	Ratio *float64 `env:"RATIO"`
 }
 
 var sensitiveKeys = map[string]struct{}{}
@@ -64,6 +74,33 @@ func loadFromMap(m map[string]string) (Env, error) {
 				return e, fmt.Errorf("env: TOKEN: value %q does not match the required pattern", v)
 			}
 			e.Token = &v
+		}
+	}
+	{
+		if v, ok := m["WEB_PORT"]; ok && v != "" {
+			n, convErr := strconv.Atoi(v)
+			if convErr != nil {
+				return e, fmt.Errorf("env: WEB_PORT: value %q is not an integer: %w", v, convErr)
+			}
+			if n < 1 || n > 65535 {
+				return e, fmt.Errorf("env: WEB_PORT: port %d is out of range 1..65535", n)
+			}
+			e.WebPort = &n
+		}
+	}
+	{
+		if v, ok := m["NAME"]; ok && v != "" {
+			v = expandVars(v, m)
+			e.Name = &v
+		}
+	}
+	{
+		if v, ok := m["RATIO"]; ok && v != "" {
+			fv, convErr := strconv.ParseFloat(v, 64)
+			if convErr != nil {
+				return e, fmt.Errorf("env: RATIO: value %q is not a float64: %w", v, convErr)
+			}
+			e.Ratio = &fv
 		}
 	}
 	return e, nil

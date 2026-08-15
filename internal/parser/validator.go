@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -40,27 +39,20 @@ func validateDefault(f *Field) error {
 }
 
 func validateConstraints(f *Field) error {
-	var rx *regexp.Regexp
-
-	if f.HasRegex() {
-		var err error
-
-		rx, err = regexp.Compile(f.Regex)
-		if err != nil {
-			return fmt.Errorf("line %d: variable %s: invalid @regex=%q: %w", f.Line, f.Key, f.Regex, err)
+	for _, c := range BuildConstraints(f) {
+		if err := c.Validate(f); err != nil {
+			return err
 		}
 	}
 
-	if !f.HasDefault {
+	if !f.HasDefault || strings.Contains(f.Default, "${") {
 		return nil
 	}
 
-	if f.StartsWith != "" && !strings.HasPrefix(f.Default, f.StartsWith) {
-		return fmt.Errorf("line %d: variable %s: default %q does not start with %q", f.Line, f.Key, f.Default, f.StartsWith)
-	}
-
-	if f.HasRegex() && !rx.MatchString(f.Default) {
-		return fmt.Errorf("line %d: variable %s: default %q does not match @regex=%q", f.Line, f.Key, f.Default, f.Regex)
+	for _, c := range BuildConstraints(f) {
+		if err := c.ValidateDefault(f); err != nil {
+			return err
+		}
 	}
 
 	return nil
