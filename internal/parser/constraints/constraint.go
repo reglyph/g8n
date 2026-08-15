@@ -5,6 +5,7 @@ import (
 
 	"github.com/reglyph/g8n/internal/model"
 	"github.com/reglyph/g8n/internal/printer"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 // FieldSchema describes the JSON Schema keywords a constraint contributes.
@@ -24,8 +25,8 @@ type Constraint interface {
 	// ValidateDefault checks the field default against the constraint
 	ValidateDefault(f *model.Field) error
 
-	// Emit writes the runtime check into the generated load function
-	Emit(p *printer.Printer, f *model.Field, src, rxVar string)
+	// Emit writes the runtime check into the generated load function for the given language.
+	Emit(p *printer.Printer, f *model.Field, src, rxVar string, lang spec.Lang)
 
 	// Schema returns the JSON Schema keywords contribusted by the constraint
 	Schema(f *model.Field) (FieldSchema, error)
