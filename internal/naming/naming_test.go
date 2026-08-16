@@ -55,3 +55,20 @@ func TestLowerFirst(t *testing.T) {
 		}
 	}
 }
+
+func TestUpperFirst(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"hello", "Hello"},
+		{"dBHost", "DBHost"},
+		{"", ""},
+		{"x", "X"},
+	}
+
+	for _, c := range cases {
+		if got := UpperFirst(c.in); got != c.want {
+			t.Errorf("UpperFirst(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

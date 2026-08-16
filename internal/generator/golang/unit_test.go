@@ -1,9 +1,10 @@
-package generator
+package golang
 
 import (
 	"strings"
 	"testing"
 
+	"github.com/reglyph/g8n/internal/generator/core"
 	"github.com/reglyph/g8n/internal/naming"
 	"github.com/reglyph/g8n/internal/parser"
 	"github.com/reglyph/g8n/internal/spec"
@@ -136,14 +137,14 @@ func TestFieldName(t *testing.T) {
 func TestCheckFieldNameCollisions(t *testing.T) {
 	fieldName := (&goGen{}).fieldName
 
-	if err := checkFieldNameCollisions(&parser.Schema{Fields: []*parser.Field{
+	if err := core.CheckFieldNameCollisions(&parser.Schema{Fields: []*parser.Field{
 		{Key: "A", Line: 1},
 		{Key: "B", Line: 2},
 	}}, fieldName); err != nil {
 		t.Fatalf("no collision expected, got %v", err)
 	}
 
-	err := checkFieldNameCollisions(&parser.Schema{Fields: []*parser.Field{
+	err := core.CheckFieldNameCollisions(&parser.Schema{Fields: []*parser.Field{
 		{Key: "DB_HOST", Line: 1},
 		{Key: "db_host", Line: 2},
 	}}, fieldName)

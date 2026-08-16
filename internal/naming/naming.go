@@ -47,6 +47,17 @@ func TSFieldName(key string) string {
 	return LowerFirst(GoFieldName(key))
 }
 
+// UpperFirst raises the first rune of an identifier and keeps the rest as is.
+func UpperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+
+	r, size := utf8.DecodeRuneInString(s)
+
+	return strings.ToUpper(string(r)) + s[size:]
+}
+
 // LowerFirst lowers the first rune of an identifier and keeps the rest as is.
 func LowerFirst(s string) string {
 	if s == "" {
