@@ -45,11 +45,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		dryRun     = fs.Bool("dry-run", false, "print the generated source to stdout without writing")
 		envName    = fs.String("env", "", "merge the .env.<env> overlay on top of .env.local")
 		jsonOut    = fs.String("json", "", "write a JSON Schema (draft-07) to this path instead of Go code")
+		langName   = fs.String("lang", "go", "output language: go or ts")
 		showVer    = fs.Bool("version", false, "print version and exit")
 	)
 
 	fs.Usage = func() {
-		emit(stderr, "@reglyph/g8n — type-safe struct generator for Go\n\n")
+		emit(stderr, "@reglyph/g8n — type-safe struct generator for Go and TypeScript\n\n")
 		emit(stderr, "Usage:\n  g8n -out <file.go> [flags]\n  g8n -schema .env.schema -out internal/env/env.go\n\nFlags:\n")
 		fs.PrintDefaults()
 	}
@@ -72,7 +73,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	if err := generate(*schemaPath, *outPath, *pkgName, *envName, *jsonOut, *force, *dryRun, stdout, stderr); err != nil {
+	if err := generate(*schemaPath, *outPath, *pkgName, *envName, *jsonOut, *langName, *force, *dryRun, stdout, stderr); err != nil {
 		emit(stderr, "g8n: %v\n", err)
 		return 1
 	}
@@ -93,7 +94,7 @@ func overlayFiles(schemaPath, env string) []string {
 	return files
 }
 
-func generate(schemaPath, outPath, pkgName, envName, jsonOut string, force, dryRun bool, stdout, stderr io.Writer) error {
+func generate(schemaPath, outPath, pkgName, envName, jsonOut, langName string, force, dryRun bool, stdout, stderr io.Writer) error {
 	schema, err := parser.ParseFiles(schemaPath, overlayFiles(schemaPath, envName)...)
 	if err != nil {
 		return err
@@ -107,14 +108,30 @@ func generate(schemaPath, outPath, pkgName, envName, jsonOut string, force, dryR
 		return generateJSONSchema(schema, jsonOut, dryRun, stdout, stderr)
 	}
 
-	pkgName, outPath, err = resolveOutputs(schemaPath, schema, pkgName, outPath)
-	if err != nil {
-		return err
+	lang, ok := spec.ParseLang(langName)
+	if !ok || !generator.Supported(lang) {
+		return fmt.Errorf("unsupported language %q", langName)
 	}
 
-	schema.Package = pkgName
+	if lang == spec.LangTS {
+		if pkgName != "" || schema.Package != "" {
+			emit(stderr, "g8n: warning: package name is ignored for TypeScript output\n")
+		}
 
-	src, err := generator.Generate(schema, spec.LangGo)
+		outPath, err = resolveOutputTS(schemaPath, schema, outPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		pkgName, outPath, err = resolveOutputs(schemaPath, schema, pkgName, outPath)
+		if err != nil {
+			return err
+		}
+
+		schema.Package = pkgName
+	}
+
+	src, err := generator.Generate(schema, lang)
 	if err != nil {
 		return fmt.Errorf("generate %s: %w", outPath, err)
 	}
@@ -126,6 +143,22 @@ func generate(schemaPath, outPath, pkgName, envName, jsonOut string, force, dryR
 	}
 
 	return writeIfChanged(outPath, src, force, stderr)
+}
+
+func resolveOutputTS(schemaPath string, schema *parser.Schema, outPath string) (string, error) {
+	if outPath == "" {
+		outPath = schema.OutPath
+
+		if outPath != "" {
+			outPath = resolveRelative(filepath.Dir(schemaPath), outPath)
+		}
+	}
+
+	if outPath == "" {
+		return "", fmt.Errorf("no out path: pass -out or declare @out(path=...) in %s", schemaPath)
+	}
+
+	return outPath, nil
 }
 
 func resolveOutputs(schemaPath string, schema *parser.Schema, pkg, outPath string) (pkgName, out string, err error) {
