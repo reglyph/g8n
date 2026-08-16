@@ -1,4 +1,4 @@
-package generator
+package golang
 
 import (
 	"fmt"
@@ -173,7 +173,7 @@ func (g *goGen) writeEnumHelper(p *printer.Printer) {
 		return
 	}
 
-	p.WriteRaw(goEnumHelperSource)
+	p.WriteRaw(enumHelperSource)
 	p.Blank()
 }
 
@@ -182,7 +182,7 @@ func (g *goGen) writeExpandHelper(p *printer.Printer) {
 		return
 	}
 
-	p.WriteRaw(goExpandHelperSource)
+	p.WriteRaw(expandHelperSource)
 	p.Blank()
 }
 
