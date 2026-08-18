@@ -49,6 +49,10 @@ func TestParityGoTS(t *testing.T) {
 			{"enum and port ok", map[string]string{"API_KEY": "x", "APP_ENV": "prod", "DB_PORT": "5432"}, "ok"},
 			{"first field error wins", map[string]string{"API_KEY": "x", "DB_PORT": "abc", "ADMIN_EMAIL": "bad"}, `env: DB_PORT: value "abc" is not an integer: strconv.Atoi: parsing "abc": invalid syntax`},
 		}},
+		{"enum quotes", "# @package=env\n# @type=enum(it's,a`b,a${x}b)\nAPP_ENV=\n", []scene{
+			{"bad enum", map[string]string{"APP_ENV": "invalid"}, "env: APP_ENV: value \"invalid\" is not in the allowed list [it's, a`b, a${x}b]"},
+			{"good enum", map[string]string{"APP_ENV": "a`b"}, "ok"},
+		}},
 		{"constraints", fixtures.ConstraintsSchema, []scene{
 			{"all defaults", map[string]string{}, "ok"},
 			{"bad startsWith", map[string]string{"SERVICE": "bad"}, `env: SERVICE: value "bad" does not start with "sk_"`},

@@ -1,6 +1,8 @@
 package constraints
 
 import (
+	"strings"
+
 	"github.com/reglyph/g8n/internal/model"
 	"github.com/reglyph/g8n/internal/printer"
 	"github.com/reglyph/g8n/internal/spec"
@@ -67,4 +69,9 @@ func writeTSConstraintError(p *printer.Printer, f *model.Field, sensitiveMsg, fu
 	}
 
 	p.Linef("throw new Error(`env: %s: %s`)", f.Key, fullMsg)
+}
+
+// JSEscape escapes s so it can be embedded in a JS string or template literal without changing the rendered text.
+func JSEscape(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `'`, `\'`, "`", "\\`", "${", "\\${").Replace(s)
 }

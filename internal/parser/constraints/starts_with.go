@@ -35,7 +35,7 @@ func (startsWithConstraint) Emit(p *printer.Printer, f *model.Field, src, _ stri
 		p.Indent()
 		writeTSConstraintError(p, f,
 			"value does not start with the required prefix",
-			fmt.Sprintf(`value "${%s}" does not start with %s`, src, strconv.Quote(f.StartsWith)))
+			fmt.Sprintf(`value "${%s}" does not start with %s`, src, JSEscape(strconv.Quote(f.StartsWith))))
 		p.Dedent()
 		p.Line("}")
 	default:

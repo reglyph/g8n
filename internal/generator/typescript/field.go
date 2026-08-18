@@ -7,6 +7,7 @@ import (
 
 	"github.com/reglyph/g8n/internal/generator/core"
 	"github.com/reglyph/g8n/internal/parser"
+	"github.com/reglyph/g8n/internal/parser/constraints"
 	"github.com/reglyph/g8n/internal/printer"
 	"github.com/reglyph/g8n/internal/spec"
 )
@@ -287,7 +288,13 @@ func (g *tsGen) writeEmailError(p *printer.Printer, f *parser.Field, src string)
 }
 
 func (g *tsGen) writeEnumError(p *printer.Printer, f *parser.Field, src string) {
-	allowed := "[" + strings.Join(f.Enum, ", ") + "]"
+	quoted := make([]string, len(f.Enum))
+
+	for i, v := range f.Enum {
+		quoted[i] = constraints.JSEscape(v)
+	}
+
+	allowed := "[" + strings.Join(quoted, ", ") + "]"
 
 	if f.Sensitive {
 		p.Linef("throw new Error('env: %s: value is not in the allowed list %s');", f.Key, allowed)
