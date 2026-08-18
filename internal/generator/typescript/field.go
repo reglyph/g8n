@@ -295,7 +295,20 @@ func (g *tsGen) writeConvError(p *printer.Printer, f *parser.Field, what, src st
 	if f.Sensitive {
 		p.Linef("throw new Error('env: %s: value is not %s');", f.Key, what)
 	} else {
-		p.Linef("throw new Error(`env: %s: value \"${%s}\" is not %s`);", f.Key, src, what)
+		p.Linef("throw new Error(`env: %s: value \"${%s}\" is not %s: %s: parsing \"${%s}\": invalid syntax`);", f.Key, src, what, strconvFn(what), src)
+	}
+}
+
+func strconvFn(what string) string {
+	switch what {
+	case "an int64":
+		return "strconv.ParseInt"
+	case "a float64":
+		return "strconv.ParseFloat"
+	case "a boolean":
+		return "strconv.ParseBool"
+	default:
+		return "strconv.Atoi"
 	}
 }
 
@@ -303,7 +316,7 @@ func (g *tsGen) writePortError(p *printer.Printer, f *parser.Field) {
 	if f.Sensitive {
 		p.Linef("throw new Error('env: %s: port is out of range %d..%d');", f.Key, spec.PortMin, spec.PortMax)
 	} else {
-		p.Linef("throw new Error(`env: %s: port \"${n}\" is out of range %d..%d`);", f.Key, spec.PortMin, spec.PortMax)
+		p.Linef("throw new Error(`env: %s: port ${n} is out of range %d..%d`);", f.Key, spec.PortMin, spec.PortMax)
 	}
 }
 

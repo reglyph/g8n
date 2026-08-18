@@ -77,10 +77,10 @@ function loadFromMap(m: Record<string, string | undefined>): Env {
 		if (v !== undefined && v !== "") {
 			const n = parseIntStrict(v);
 			if (n === null) {
-				throw new Error(`env: DB_PORT: value "${v}" is not an integer`);
+				throw new Error(`env: DB_PORT: value "${v}" is not an integer: strconv.Atoi: parsing "${v}": invalid syntax`);
 			}
 			if (n < 1 || n > 65535) {
-				throw new Error(`env: DB_PORT: port "${n}" is out of range 1..65535`);
+				throw new Error(`env: DB_PORT: port ${n} is out of range 1..65535`);
 			}
 			e.dbPort = n;
 		} else {
@@ -131,7 +131,7 @@ function loadFromMap(m: Record<string, string | undefined>): Env {
 		if (v !== undefined && v !== "") {
 			const n = parseIntStrict(v);
 			if (n === null) {
-				throw new Error(`env: MAX_UPLOAD_BYTES: value "${v}" is not an int64`);
+				throw new Error(`env: MAX_UPLOAD_BYTES: value "${v}" is not an int64: strconv.ParseInt: parsing "${v}": invalid syntax`);
 			}
 			e.maxUploadBytes = n;
 		} else {
@@ -143,7 +143,7 @@ function loadFromMap(m: Record<string, string | undefined>): Env {
 		if (v !== undefined && v !== "") {
 			const f = parseFloatStrict(v);
 			if (f === null) {
-				throw new Error(`env: JITTER: value "${v}" is not a float64`);
+				throw new Error(`env: JITTER: value "${v}" is not a float64: strconv.ParseFloat: parsing "${v}": invalid syntax`);
 			}
 			e.jitter = f;
 		} else {
@@ -155,7 +155,7 @@ function loadFromMap(m: Record<string, string | undefined>): Env {
 		if (v !== undefined && v !== "") {
 			const b = parseBoolStrict(v);
 			if (b === null) {
-				throw new Error(`env: DEBUG: value "${v}" is not a boolean`);
+				throw new Error(`env: DEBUG: value "${v}" is not a boolean: strconv.ParseBool: parsing "${v}": invalid syntax`);
 			}
 			e.debug = b;
 		} else {

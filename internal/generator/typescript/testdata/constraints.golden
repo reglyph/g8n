@@ -69,10 +69,10 @@ function loadFromMap(m: Record<string, string | undefined>): Env {
 		if (v !== undefined && v !== "") {
 			const n = parseIntStrict(v);
 			if (n === null) {
-				throw new Error(`env: WEB_PORT: value "${v}" is not an integer`);
+				throw new Error(`env: WEB_PORT: value "${v}" is not an integer: strconv.Atoi: parsing "${v}": invalid syntax`);
 			}
 			if (n < 1 || n > 65535) {
-				throw new Error(`env: WEB_PORT: port "${n}" is out of range 1..65535`);
+				throw new Error(`env: WEB_PORT: port ${n} is out of range 1..65535`);
 			}
 			e.webPort = n;
 		}
@@ -89,7 +89,7 @@ function loadFromMap(m: Record<string, string | undefined>): Env {
 		if (v !== undefined && v !== "") {
 			const f = parseFloatStrict(v);
 			if (f === null) {
-				throw new Error(`env: RATIO: value "${v}" is not a float64`);
+				throw new Error(`env: RATIO: value "${v}" is not a float64: strconv.ParseFloat: parsing "${v}": invalid syntax`);
 			}
 			e.ratio = f;
 		}
