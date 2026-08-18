@@ -53,7 +53,7 @@ brews:
       owner: reglyph
       name: homebrew-tap
     homepage: https://github.com/reglyph/g8n
-    description: Type-safe environment struct generator for Go
+    description: Type-safe environment struct generator for Go and TypeScript
     license: MIT
     install: |
       bin.install "g8n"

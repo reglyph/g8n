@@ -41,3 +41,23 @@ jobs:
 
       - name: Test
         run: go test -race -count=1 ./...
+
+  ts-smoke:
+    name: TS smoke (tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.21"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Generate TypeScript output
+        run: go run ./cmd/g8n -lang ts -schema cmd/g8n/testdata/smoke.env.schema -out /tmp/ts-smoke/env.ts
+
+      - name: Type-check with tsc
+        run: npx -y -p typescript tsc --strict --noEmit /tmp/ts-smoke/env.ts

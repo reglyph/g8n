@@ -45,7 +45,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		dryRun     = fs.Bool("dry-run", false, "print the generated source to stdout without writing")
 		envName    = fs.String("env", "", "merge the .env.<env> overlay on top of .env.local")
 		jsonOut    = fs.String("json", "", "write a JSON Schema (draft-07) to this path instead of Go code")
-		langName   = fs.String("lang", "go", "output language: go or ts")
+		langName   = fs.String("lang", "go", "output language: go or ts (ts is experimental)")
 		showVer    = fs.Bool("version", false, "print version and exit")
 	)
 
@@ -114,6 +114,8 @@ func generate(schemaPath, outPath, pkgName, envName, jsonOut, langName string, f
 	}
 
 	if lang == spec.LangTS {
+		emit(stderr, "g8n: warning: TypeScript output is experimental and may change\n")
+
 		if pkgName != "" || schema.Package != "" {
 			emit(stderr, "g8n: warning: package name is ignored for TypeScript output\n")
 		}
