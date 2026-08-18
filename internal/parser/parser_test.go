@@ -448,3 +448,40 @@ func TestSeparatorResetsDocumentation(t *testing.T) {
 		t.Errorf("separator should reset docs, got %v", f.Docs)
 	}
 }
+
+func TestParseSourceOnFieldIntegration(t *testing.T) {
+	src := `# @package=config
+# @out(path=internal/config/config.go)
+
+# Database password, from 1Password with env fallback
+# @sensitive @required
+# @source=1password(vault=prod, item=db-creds, field=password) | env(DB_PASSWORD)
+DB_PASSWORD=
+
+# Region is local, no secret source
+DB_REGION=us-east-1
+`
+
+	s, err := ParseString("", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(s.Warnings) != 0 {
+		t.Errorf("warnings = %v, want none", s.Warnings)
+	}
+
+	db := s.FieldByKey("DB_PASSWORD")
+	if !db.Sensitive || !db.Required {
+		t.Error("source field must keep @sensitive and @required")
+	}
+
+	if db.Source == "" || len(db.SourceSpecs) != 2 {
+		t.Errorf("DB_PASSWORD source specs = %d, want 2 chained", len(db.SourceSpecs))
+	}
+
+	region := s.FieldByKey("DB_REGION")
+	if region.Source != "" || region.SourceSpecs != nil {
+		t.Error("field without @source must have no source specs")
+	}
+}

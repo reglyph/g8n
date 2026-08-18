@@ -98,6 +98,39 @@ func ParseKind(name string) (Kind, bool) {
 	}
 }
 
+// SecretProvider identifies a secret manager backend.
+type SecretProvider string
+
+// Supported secret providers.
+const (
+	Provider1Password SecretProvider = "1password"
+	ProviderAWS       SecretProvider = "aws"
+	ProviderVault     SecretProvider = "vault"
+	ProviderInfisical SecretProvider = "infisical"
+	ProviderDoppler   SecretProvider = "doppler"
+	ProviderAzure     SecretProvider = "azure"
+	ProviderGCP       SecretProvider = "gcp"
+	ProviderEnv       SecretProvider = "env"
+)
+
+// SourceSpec describes one provider in a @source chain; Next is the fallback tried on failure.
+type SourceSpec struct {
+	Provider SecretProvider
+	Params   map[string]string
+	Next     *SourceSpec
+}
+
+// ParseSecretProvider resolves a name to a SecretProvider and reports whether it is known.
+func ParseSecretProvider(name string) (SecretProvider, bool) {
+	switch SecretProvider(name) {
+	case Provider1Password, ProviderAWS, ProviderVault, ProviderInfisical,
+		ProviderDoppler, ProviderAzure, ProviderGCP, ProviderEnv:
+		return SecretProvider(name), true
+	default:
+		return SecretProvider(name), false
+	}
+}
+
 // IsStringLike reports whether the kind is a string-like type.
 func (k Kind) IsStringLike() bool {
 	return k.Spec().StringLike

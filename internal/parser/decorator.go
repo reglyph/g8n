@@ -58,6 +58,19 @@ func init() {
 		{name: "sensitive", token: true, apply: func(f *Field, val string, warn warnf) {
 			f.Sensitive = true
 		}},
+		{name: "source", standalone: true, apply: func(f *Field, val string, warn warnf) {
+			if val == "" {
+				warn("@source requires a value, e.g. @source=1password(vault=v, item=i, field=f)")
+				return
+			}
+
+			if f.Source != "" {
+				warn("variable %q: @source already declared; %q wins", f.Key, val)
+			}
+
+			f.Source = val
+			f.SourceSpecs = parseSourceChain(val, warn)
+		}},
 	}
 }
 
@@ -389,4 +402,76 @@ func applyStringConstraint(f *Field, decorator, val string, warn warnf) {
 	case "regex":
 		f.Regex = val
 	}
+}
+
+// parseSourceChain parses a @source value into ordered specs; malformed parts are best-effort with warnings.
+func parseSourceChain(val string, warn warnf) []spec.SourceSpec {
+	var specs []spec.SourceSpec
+
+	for _, part := range strings.Split(val, "|") {
+		part = strings.TrimSpace(part)
+
+		if part == "" {
+			continue
+		}
+
+		name, params := part, ""
+		if i := strings.IndexByte(part, '('); i >= 0 {
+			if !strings.HasSuffix(part, ")") {
+				warn("@source: %q missing closing ')'", part)
+				continue
+			}
+
+			name, params = part[:i], part[i+1:len(part)-1]
+		}
+
+		name = strings.TrimSpace(name)
+
+		provider, known := spec.ParseSecretProvider(name)
+		if !known {
+			warn("unknown provider %q in @source, fetcher will fail at runtime", name)
+		}
+
+		specs = append(specs, spec.SourceSpec{
+			Provider: provider,
+			Params:   parseSourceParams(params, warn),
+		})
+	}
+
+	// Link after all appends; element addresses would dangle on reallocation.
+	for i := range specs {
+		if i+1 < len(specs) {
+			specs[i].Next = &specs[i+1]
+		}
+	}
+
+	return specs
+}
+
+// parseSourceParams parses the comma-separated key=value params of a provider spec; bare tokens are skipped.
+func parseSourceParams(s string, warn warnf) map[string]string {
+	if s == "" {
+		return nil
+	}
+
+	out := make(map[string]string)
+
+	for _, param := range splitParams(s) {
+		kv := strings.SplitN(strings.TrimSpace(param), "=", 2)
+
+		if len(kv) != 2 {
+			continue
+		}
+
+		k, v := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+
+		if k == "" || v == "" {
+			warn("@source: ignoring empty parameter %q", strings.TrimSpace(param))
+			continue
+		}
+
+		out[k] = v
+	}
+
+	return out
 }

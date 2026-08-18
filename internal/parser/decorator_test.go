@@ -315,3 +315,151 @@ func TestParseDuplicateTypeWarns(t *testing.T) {
 		t.Errorf("want duplicate @type warning, got %v", s.Warnings)
 	}
 }
+
+func TestParseSourceSingleProvider(t *testing.T) {
+	s, err := ParseString("", "# @source=1password(vault=prod, item=db-creds, field=password)\nDB_PASSWORD=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := s.FieldByKey("DB_PASSWORD")
+	if f == nil {
+		t.Fatal("field DB_PASSWORD missing")
+	}
+
+	if f.Source != "1password(vault=prod, item=db-creds, field=password)" {
+		t.Errorf("Source = %q, want raw value preserved", f.Source)
+	}
+
+	if len(f.SourceSpecs) != 1 {
+		t.Fatalf("SourceSpecs = %d specs, want 1", len(f.SourceSpecs))
+	}
+
+	got := f.SourceSpecs[0]
+	if got.Provider != spec.Provider1Password {
+		t.Errorf("Provider = %q, want 1password", got.Provider)
+	}
+
+	if got.Next != nil {
+		t.Error("single spec must not have a Next")
+	}
+
+	wantParams := map[string]string{"vault": "prod", "item": "db-creds", "field": "password"}
+	if len(got.Params) != 3 {
+		t.Errorf("Params = %v, want %v", got.Params, wantParams)
+	}
+
+	for k, v := range wantParams {
+		if got.Params[k] != v {
+			t.Errorf("Params[%q] = %q, want %q", k, got.Params[k], v)
+		}
+	}
+
+	if len(s.Warnings) != 0 {
+		t.Errorf("warnings = %v, want none", s.Warnings)
+	}
+}
+
+func TestParseSourceChainFallback(t *testing.T) {
+	s, err := ParseString("", "# @source=1password(vault=prod, item=db) | aws(secret=prod/db/password, region=us-east-1) | env(DB_PASSWORD)\nDB_PASSWORD=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	specs := s.FieldByKey("DB_PASSWORD").SourceSpecs
+	if len(specs) != 3 {
+		t.Fatalf("SourceSpecs = %d specs, want 3", len(specs))
+	}
+
+	wantProviders := []spec.SecretProvider{spec.Provider1Password, spec.ProviderAWS, spec.ProviderEnv}
+	for i, want := range wantProviders {
+		if specs[i].Provider != want {
+			t.Errorf("specs[%d].Provider = %q, want %q", i, specs[i].Provider, want)
+		}
+	}
+
+	if specs[0].Next != &specs[1] || specs[1].Next != &specs[2] || specs[2].Next != nil {
+		t.Error("fallback chain not linked in order")
+	}
+
+	if specs[1].Params["region"] != "us-east-1" {
+		t.Errorf("aws region = %q, want us-east-1", specs[1].Params["region"])
+	}
+
+	if len(s.Warnings) != 0 {
+		t.Errorf("warnings = %v, want none", s.Warnings)
+	}
+}
+
+func TestParseSourceBareParamSkipped(t *testing.T) {
+	s, err := ParseString("", "# @source=env(DB_PASSWORD)\nDB_PASSWORD=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	specs := s.FieldByKey("DB_PASSWORD").SourceSpecs
+	if len(specs) != 1 || specs[0].Provider != spec.ProviderEnv {
+		t.Fatalf("SourceSpecs = %#v, want single env spec", specs)
+	}
+
+	if len(specs[0].Params) != 0 {
+		t.Errorf("Params = %v, want none (bare token)", specs[0].Params)
+	}
+
+	if len(s.Warnings) != 0 {
+		t.Errorf("warnings = %v, want none", s.Warnings)
+	}
+}
+
+func TestParseSourceUnknownProviderBestEffort(t *testing.T) {
+	s, err := ParseString("", "# @source=custom-vault(addr=http://localhost:8200)\nK=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	specs := s.FieldByKey("K").SourceSpecs
+	if len(specs) != 1 || specs[0].Provider != spec.SecretProvider("custom-vault") {
+		t.Fatalf("SourceSpecs = %#v, want single best-effort spec", specs)
+	}
+
+	if len(s.Warnings) == 0 || !strings.Contains(s.Warnings[0], "unknown provider") {
+		t.Errorf("want unknown provider warning, got %v", s.Warnings)
+	}
+}
+
+func TestParseSourceWarnings(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{name: "missing closing paren", src: "# @source=aws(secret=x\nK=\n", want: "missing closing ')'"},
+		{name: "empty value", src: "# @source=\nK=\n", want: "@source requires a value"},
+		{name: "duplicate", src: "# @source=env(ONE)\n# @source=env(TWO)\nK=\n", want: "@source already declared"},
+		{name: "empty parameter", src: "# @source=aws(secret=, region=us-east-1)\nK=\n", want: "empty parameter"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := ParseString("", tt.src)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(s.Warnings) == 0 || !strings.Contains(s.Warnings[0], tt.want) {
+				t.Errorf("ParseString(%q) warnings = %v, want containing %q", tt.src, s.Warnings, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseSourceDuplicateLastWins(t *testing.T) {
+	s, err := ParseString("", "# @source=env(ONE)\n# @source=env(TWO)\nK=\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := s.FieldByKey("K").Source; got != "env(TWO)" {
+		t.Errorf("Source = %q, want last @source to win", got)
+	}
+}
