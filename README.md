@@ -161,6 +161,26 @@ The document declares an `object` with one property per variable: `type`, option
 `default`, `enum` (from `@type=enum(...)`), `format` (`uri` for `url`, `email` for `email`), `pattern` (from `@regex`)
 and numeric `minimum`/`maximum` bounds (for `port`). Variables marked `@required` are listed in `required`.
 
+## TypeScript (experimental)
+
+With `-lang ts`, `g8n` emits a self-contained TypeScript file instead of Go code:
+
+```bash
+g8n -schema example.env.schema -lang ts -out internal/config/env.ts
+```
+
+The generated file exports an `Env` interface, a `Load()` / `LoadFrom()` pair and the same validation and
+metadata as the Go output. Differences from the Go generator:
+
+- there is no package concept — `-package` / `@package` are ignored (a warning is printed)
+- `LoadFrom()` takes a `Record<string, string | undefined>` instead of a `[]string`
+- conversion helpers mirror Go's `strconv` semantics (`parseIntStrict`, `parseBoolStrict`, `parseFloatStrict`),
+  including `Inf` / `NaN` handling
+- regexes are compiled with `new RegExp` — RE2-only constructs (e.g. `(?P<name>)`) are not supported and
+  produce a generation warning
+
+The TypeScript API is experimental and may change. `tsc --strict` is verified in CI (job `ts-smoke`).
+
 ## License
 
 MIT – see [LICENSE](LICENSE).
