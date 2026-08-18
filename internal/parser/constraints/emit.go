@@ -36,10 +36,15 @@ func WritePortError(p *printer.Printer, f *model.Field) {
 	p.Linef("return e, fmt.Errorf(\"env: %s: port %%d is out of range %d..%d\", n)", f.Key, spec.PortMin, spec.PortMax)
 }
 
-// WriteValueError emits the value validation error line.
-func WriteValueError(p *printer.Printer, f *model.Field, sensitiveMsg, msg, src string) {
+// WriteValueError emits the value validation error line; extra renders as an additional format argument.
+func WriteValueError(p *printer.Printer, f *model.Field, sensitiveMsg, msg, src, extra string) {
 	if f.Sensitive {
 		p.Linef("return e, fmt.Errorf(\"env: %s: %s\")", f.Key, sensitiveMsg)
+		return
+	}
+
+	if extra != "" {
+		p.Linef("return e, fmt.Errorf(\"env: %s: %s\", %s, %s)", f.Key, msg, src, extra)
 		return
 	}
 

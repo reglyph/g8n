@@ -194,7 +194,7 @@ func (g *goGen) writeValueCheck(p *printer.Printer, f *parser.Field, src string)
 	case spec.KindURL:
 		p.Linef("if _, convErr := url.ParseRequestURI(%s); convErr != nil {", src)
 		p.Indent()
-		constraints.WriteValueError(p, f, "value is not a valid URL", "value %q is not a valid URL", src)
+		constraints.WriteValueError(p, f, "value is not a valid URL", "value %q is not a valid URL", src, "")
 		p.Dedent()
 		p.Line("}")
 
@@ -203,7 +203,7 @@ func (g *goGen) writeValueCheck(p *printer.Printer, f *parser.Field, src string)
 		p.Linef("dot := strings.LastIndexByte(%s, '.')", src)
 		p.Line("if at <= 0 || dot <= at+1 {")
 		p.Indent()
-		constraints.WriteValueError(p, f, "value is not a valid email", "value %q is not a valid email", src)
+		constraints.WriteValueError(p, f, "value is not a valid email", "value %q is not a valid email", src, "")
 		p.Dedent()
 		p.Line("}")
 
@@ -214,9 +214,11 @@ func (g *goGen) writeValueCheck(p *printer.Printer, f *parser.Field, src string)
 			quoted = append(quoted, strconv.Quote(v))
 		}
 
+		list := strconv.Quote("[" + strings.Join(f.Enum, ", ") + "]")
+
 		p.Linef("if !envContains([]string{%s}, %s) {", strings.Join(quoted, ", "), src)
 		p.Indent()
-		constraints.WriteValueError(p, f, "value is not in the allowed list", "value %q is not in the allowed list ["+strings.Join(f.Enum, ", ")+"]", src)
+		constraints.WriteValueError(p, f, "value is not in the allowed list", "value %q is not in the allowed list %s", src, list)
 		p.Dedent()
 		p.Line("}")
 

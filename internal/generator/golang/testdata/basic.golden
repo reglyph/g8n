@@ -107,13 +107,13 @@ func loadFromMap(m map[string]string) (Env, error) {
 		if v, ok := m["APP_ENV"]; ok && v != "" {
 			v = expandVars(v, m)
 			if !envContains([]string{"dev", "staging", "prod"}, v) {
-				return e, fmt.Errorf("env: APP_ENV: value %q is not in the allowed list [dev, staging, prod]", v)
+				return e, fmt.Errorf("env: APP_ENV: value %q is not in the allowed list %s", v, "[dev, staging, prod]")
 			}
 			e.AppEnv = &v
 		} else {
 			t := expandVars("dev", m)
 			if !envContains([]string{"dev", "staging", "prod"}, t) {
-				return e, fmt.Errorf("env: APP_ENV: value %q is not in the allowed list [dev, staging, prod]", t)
+				return e, fmt.Errorf("env: APP_ENV: value %q is not in the allowed list %s", t, "[dev, staging, prod]")
 			}
 			e.AppEnv = &t
 		}
