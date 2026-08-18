@@ -3,7 +3,6 @@ package typescript
 import (
 	"flag"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -203,10 +202,6 @@ func TestGenerateTSGolden(t *testing.T) {
 }
 
 func TestGenerateTSOutputTypeChecks(t *testing.T) {
-	if _, err := exec.LookPath("npx"); err != nil {
-		t.Skip("npx not available")
-	}
-
 	for _, c := range []struct{ name, schema string }{
 		{"basic", fixtures.BasicSchema},
 		{"constraints", fixtures.ConstraintsSchema},
@@ -238,11 +233,5 @@ func tsCheck(t *testing.T, src []byte) {
 		t.Fatal(err)
 	}
 
-	// #nosec G204 -- fixed args, only the temp file path varies
-	cmd := exec.Command("npx", "-p", "typescript", "tsc", "--strict", "--noEmit", file)
-	out, err := cmd.CombinedOutput()
-
-	if err != nil && !strings.Contains(string(out), "could not be found") {
-		t.Fatalf("generated code does not type-check: %v\n%s", err, out)
-	}
+	TSCompile(t, "--strict", "--noEmit", file)
 }

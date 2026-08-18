@@ -22,10 +22,6 @@ type scene struct {
 
 // TestParityGoTS runs the same scenarios through the generated Go and TypeScript.
 func TestParityGoTS(t *testing.T) {
-	if _, err := exec.LookPath("npx"); err != nil {
-		t.Skip("npx not available")
-	}
-
 	cases := []struct {
 		name   string
 		schema string
@@ -152,12 +148,7 @@ func runTS(t *testing.T, src []byte, env map[string]string) string {
 	}
 
 	// #nosec G204 -- fixed args, only the temp file path varies
-	cmd := exec.Command("npx", "-p", "typescript", "tsc", "--strict", "--module", "commonjs", "--target", "es2020", tsFile)
-	out, err := cmd.CombinedOutput()
-
-	if err != nil && !strings.Contains(string(out), "could not be found") {
-		t.Fatalf("tsc: %v\n%s", err, out)
-	}
+	typescript.TSCompile(t, "--module", "commonjs", "--target", "es2020", tsFile)
 
 	envJSON, err := json.Marshal(env)
 	if err != nil {
@@ -174,8 +165,8 @@ try {
 }`
 
 	// #nosec G204 -- fixed args, only the temp file path and env JSON vary
-	cmd = exec.Command("node", "-e", script, filepath.Join(dir, "env.js"), string(envJSON))
-	out, err = cmd.CombinedOutput()
+	cmd := exec.Command("node", "-e", script, filepath.Join(dir, "env.js"), string(envJSON))
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("node: %v\n%s", err, out)
 	}
