@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/reglyph/g8n/internal/generator/core"
 	"github.com/reglyph/g8n/internal/naming"
 	"github.com/reglyph/g8n/internal/parser"
 	"github.com/reglyph/g8n/internal/parser/constraints"
@@ -17,7 +18,7 @@ func (g *goGen) writeFieldLoad(p *printer.Printer, f *parser.Field) error {
 	key := strconv.Quote(f.Key)
 
 	hasDefault := f.HasDefault && !f.Sensitive
-	expand := g.expandable(f)
+	expand := core.Expandable(f)
 	expandStmt := func(p *printer.Printer, src string) {
 		if expand {
 			p.Linef("%s = expandVars(%s, m)", src, src)
@@ -102,13 +103,13 @@ func (g *goGen) writeFieldLoad(p *printer.Printer, f *parser.Field) error {
 }
 
 func (g *goGen) writeDefaultValue(p *printer.Printer, f *parser.Field, target string, ptr bool) error {
-	lit, err := g.literal(f)
+	lit, err := core.Literal(f, spec.LangGo)
 	if err != nil {
 		return err
 	}
 
 	if f.Kind.IsStringLike() {
-		p.Linef("t := %s", g.expandExpr(f, lit))
+		p.Linef("t := %s", core.ExpandExpr(f, lit))
 
 		return g.writeConversion(p, f, target, "t", ptr)
 	}
@@ -123,59 +124,6 @@ func (g *goGen) writeDefaultValue(p *printer.Printer, f *parser.Field, target st
 	p.Linef("%s = %s", target, lit)
 
 	return nil
-}
-
-func (g *goGen) expandExpr(f *parser.Field, expr string) string {
-	if g.expandable(f) {
-		return "expandVars(" + expr + ", m)"
-	}
-
-	return expr
-}
-
-func (g *goGen) literal(f *parser.Field) (string, error) {
-	if !f.HasDefault {
-		return g.zeroLiteral(f.Kind), nil
-	}
-
-	return g.typedLiteral(f)
-}
-
-func (g *goGen) zeroLiteral(kind spec.Kind) string {
-	switch kind {
-	case spec.KindInt, spec.KindPort:
-		return "0"
-	case spec.KindInt64:
-		return "int64(0)"
-	case spec.KindBool:
-		return "false"
-	case spec.KindFloat64:
-		return "0"
-	default:
-		return `""`
-	}
-}
-
-func (g *goGen) typedLiteral(f *parser.Field) (string, error) {
-	lit, err := f.Kind.ParseLiteral(f.Default)
-	if err != nil {
-		return "", fmt.Errorf("variable %s: %w", f.Key, err)
-	}
-
-	switch f.Kind {
-	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
-		return strconv.Quote(lit.Str), nil
-	case spec.KindInt, spec.KindPort:
-		return strconv.FormatInt(lit.Int, 10), nil
-	case spec.KindInt64:
-		return "int64(" + strconv.FormatInt(lit.Int, 10) + ")", nil
-	case spec.KindFloat64:
-		return "float64(" + strconv.FormatFloat(lit.Float, 'g', -1, 64) + ")", nil
-	case spec.KindBool:
-		return strconv.FormatBool(lit.Bool), nil
-	default:
-		return "", fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
-	}
 }
 
 func (g *goGen) writeConversion(p *printer.Printer, f *parser.Field, target, src string, ptr bool) error {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/reglyph/g8n/internal/generator/core"
 	"github.com/reglyph/g8n/internal/parser"
 	"github.com/reglyph/g8n/internal/printer"
 	"github.com/reglyph/g8n/internal/spec"
@@ -94,7 +95,7 @@ func (g *tsGen) writeFieldLoad(p *printer.Printer, f *parser.Field) error {
 // convertFromV expands the value (mirroring goGen's expandStmt) and converts
 // it into the target field.
 func (g *tsGen) convertFromV(p *printer.Printer, f *parser.Field, target, src string) error {
-	if g.expandable(f) {
+	if core.Expandable(f) {
 		p.Linef("const t = expandVars(%s, m);", src)
 		src = "t"
 	}
@@ -103,13 +104,13 @@ func (g *tsGen) convertFromV(p *printer.Printer, f *parser.Field, target, src st
 }
 
 func (g *tsGen) writeDefaultValue(p *printer.Printer, f *parser.Field, target string) error {
-	lit, err := g.literal(f)
+	lit, err := core.Literal(f, spec.LangTS)
 	if err != nil {
 		return err
 	}
 
 	if f.Kind.IsStringLike() {
-		p.Linef("const t = %s;", g.expandExpr(f, lit))
+		p.Linef("const t = %s;", core.ExpandExpr(f, lit))
 
 		return g.writeConversion(p, f, target, "t")
 	}
@@ -117,57 +118,6 @@ func (g *tsGen) writeDefaultValue(p *printer.Printer, f *parser.Field, target st
 	p.Linef("%s = %s;", target, lit)
 
 	return nil
-}
-
-func (g *tsGen) expandExpr(f *parser.Field, expr string) string {
-	if g.expandable(f) {
-		return "expandVars(" + expr + ", m)"
-	}
-
-	return expr
-}
-
-func (g *tsGen) literal(f *parser.Field) (string, error) {
-	if !f.HasDefault {
-		return g.tsZeroLiteral(f.Kind), nil
-	}
-
-	return g.tsTypedLiteral(f)
-}
-
-func (g *tsGen) tsZeroLiteral(kind spec.Kind) string {
-	switch kind {
-	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
-		return `""`
-	case spec.KindInt, spec.KindInt64, spec.KindPort:
-		return "0"
-	case spec.KindBool:
-		return "false"
-	case spec.KindFloat64:
-		return "0"
-	default:
-		return `""`
-	}
-}
-
-func (g *tsGen) tsTypedLiteral(f *parser.Field) (string, error) {
-	lit, err := f.Kind.ParseLiteral(f.Default)
-	if err != nil {
-		return "", fmt.Errorf("variable %s: %w", f.Key, err)
-	}
-
-	switch f.Kind {
-	case spec.KindString, spec.KindURL, spec.KindEmail, spec.KindEnum:
-		return strconv.Quote(lit.Str), nil
-	case spec.KindInt, spec.KindInt64, spec.KindPort:
-		return strconv.FormatInt(lit.Int, 10), nil
-	case spec.KindFloat64:
-		return strconv.FormatFloat(lit.Float, 'g', -1, 64), nil
-	case spec.KindBool:
-		return strconv.FormatBool(lit.Bool), nil
-	default:
-		return "", fmt.Errorf("unknown kind %s for variable %s", f.Kind, f.Key)
-	}
 }
 
 func (g *tsGen) writeConversion(p *printer.Printer, f *parser.Field, target, src string) error {

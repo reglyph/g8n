@@ -109,19 +109,11 @@ func (g *goGen) computeUses() error {
 			}
 		}
 
-		if g.expandable(f) {
+		if core.Expandable(f) {
 			g.hasExpand = true
 			g.uses["regexp"] = true
 		}
 	}
 
 	return nil
-}
-
-func (g *goGen) expandable(f *parser.Field) bool {
-	if f.Sensitive || f.HasRegex() {
-		return false
-	}
-
-	return f.Kind.IsStringLike()
 }

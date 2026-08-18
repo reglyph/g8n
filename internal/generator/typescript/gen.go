@@ -85,20 +85,12 @@ func (g *tsGen) computeUses() error {
 	}
 
 	for _, f := range g.schema.Fields {
-		if g.expandable(f) {
+		if core.Expandable(f) {
 			g.hasExpand = true
 		}
 	}
 
 	return nil
-}
-
-func (g *tsGen) expandable(f *parser.Field) bool {
-	if f.Sensitive || f.HasRegex() {
-		return false
-	}
-
-	return f.Kind.IsStringLike()
 }
 
 // regexVar returns the module-level regex variable name for the field.

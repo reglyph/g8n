@@ -33,8 +33,10 @@ func TestTSZeroLiteral(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := (&tsGen{}).tsZeroLiteral(c.kind); got != c.want {
-			t.Errorf("tsZeroLiteral(%v) = %q, want %q", c.kind, got, c.want)
+		f := &parser.Field{Key: "K", Kind: c.kind}
+
+		if got, _ := core.Literal(f, spec.LangTS); got != c.want {
+			t.Errorf("zero literal for %v = %q, want %q", c.kind, got, c.want)
 		}
 	}
 }
@@ -67,8 +69,7 @@ func TestTSLiteral(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := &tsGen{}
-			got, err := g.literal(c.f)
+			got, err := core.Literal(c.f, spec.LangTS)
 
 			if c.err && err == nil {
 				t.Fatalf("expected error, got %q", got)

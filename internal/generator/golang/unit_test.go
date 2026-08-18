@@ -27,8 +27,10 @@ func TestZeroLiteral(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := (&goGen{}).zeroLiteral(c.kind); got != c.want {
-			t.Errorf("zeroLiteral(%v) = %q, want %q", c.kind, got, c.want)
+		f := &parser.Field{Key: "K", Kind: c.kind}
+
+		if got, _ := core.Literal(f, spec.LangGo); got != c.want {
+			t.Errorf("zero literal for %v = %q, want %q", c.kind, got, c.want)
 		}
 	}
 }
@@ -62,8 +64,7 @@ func TestLiteral(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := &goGen{}
-			got, err := g.literal(c.f)
+			got, err := core.Literal(c.f, spec.LangGo)
 
 			if c.err && err == nil {
 				t.Fatalf("expected error, got %q", got)
@@ -81,9 +82,8 @@ func TestLiteral(t *testing.T) {
 }
 
 func TestLiteralNoDefault(t *testing.T) {
-	g := &goGen{}
 	f := &parser.Field{Key: "K", Kind: spec.KindString}
-	if got, err := g.literal(f); err != nil || got != `""` {
+	if got, err := core.Literal(f, spec.LangGo); err != nil || got != `""` {
 		t.Errorf("literal without default = %q, %v; want %q", got, err, `""`)
 	}
 }
@@ -106,9 +106,7 @@ func TestExpandable(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := &goGen{}
-
-			if got := g.expandable(c.f); got != c.want {
+			if got := core.Expandable(c.f); got != c.want {
 				t.Errorf("expandable = %v, want %v", got, c.want)
 			}
 		})
