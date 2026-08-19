@@ -26,6 +26,7 @@ type goGen struct {
 	uses      map[string]bool
 	hasEnum   bool
 	hasExpand bool
+	providers map[spec.SecretProvider]bool
 }
 
 func (g *goGen) fieldName(key string) string {
@@ -65,6 +66,7 @@ func (g *goGen) build() ([]byte, error) {
 		return nil, err
 	}
 
+	g.writeSecretFetchers(&p)
 	g.writeEnumHelper(&p)
 	g.writeExpandHelper(&p)
 	g.writeRegexVars(&p)
@@ -79,8 +81,11 @@ func (g *goGen) build() ([]byte, error) {
 
 func (g *goGen) computeUses() error {
 	g.uses = map[string]bool{"os": true, "strings": true}
+	g.providers = map[spec.SecretProvider]bool{}
 
 	for _, f := range g.schema.Fields {
+		g.trackSourceUses(f)
+
 		switch f.Kind {
 		case spec.KindInt, spec.KindInt64, spec.KindBool, spec.KindFloat64, spec.KindPort:
 			g.uses["strconv"] = true
@@ -116,4 +121,20 @@ func (g *goGen) computeUses() error {
 	}
 
 	return nil
+}
+
+// trackSourceUses records the imports and providers required by @source fields.
+func (g *goGen) trackSourceUses(f *parser.Field) {
+	if len(f.SourceSpecs) == 0 {
+		return
+	}
+
+	g.uses["context"] = true
+	g.uses["fmt"] = true
+	g.uses["os/exec"] = true
+	g.uses["time"] = true
+
+	for sp := &f.SourceSpecs[0]; sp != nil; sp = sp.Next {
+		g.providers[sp.Provider] = true
+	}
 }

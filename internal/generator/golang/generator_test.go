@@ -23,6 +23,19 @@ const constraintsSchema = fixtures.ConstraintsSchema
 
 const minimalSchema = fixtures.MinimalSchema
 
+//nolint:gosec // test fixture, parameter names only, no real secret
+const secretsSchema = `# @package=config
+# @out(path=internal/config/config.go)
+
+# Database password, fetched from 1Password at runtime
+# @required
+# @source=1password(vault=prod, item=db-creds, field=password)
+DB_PASSWORD=
+
+# Plain field, must not trigger any fetcher
+DB_REGION=us-east-1
+`
+
 func TestGenerateGolden(t *testing.T) {
 	for _, c := range []struct {
 		name, schema, golden string
@@ -30,6 +43,7 @@ func TestGenerateGolden(t *testing.T) {
 		{"basic", basicSchema, "testdata/basic.golden"},
 		{"constraints", constraintsSchema, "testdata/constraints.golden"},
 		{"minimal", minimalSchema, "testdata/minimal.golden"},
+		{"secrets", secretsSchema, "testdata/secrets/basic.golden"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			s, err := parser.ParseString(c.name+".env.schema", c.schema)
@@ -70,6 +84,7 @@ func TestGenerateGoldenOutputTypeChecks(t *testing.T) {
 		{"basic", basicSchema},
 		{"constraints", constraintsSchema},
 		{"minimal", minimalSchema},
+		{"secrets", secretsSchema},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			s, err := parser.ParseString(c.name+".env.schema", c.schema)

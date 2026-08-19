@@ -1,4 +1,4 @@
-.PHONY: build test lint release
+.PHONY: build test lint release hooks
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
@@ -13,3 +13,8 @@ lint:
 
 release:
 	goreleaser release --clean
+
+hooks:
+	@printf '#!/bin/sh\nmake lint && make test\n' > .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "pre-commit hook installed"

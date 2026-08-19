@@ -2,9 +2,12 @@ package golang
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/reglyph/g8n/internal/parser"
 	"github.com/reglyph/g8n/internal/printer"
+	"github.com/reglyph/g8n/internal/spec"
 )
 
 func (g *goGen) writeHeader(p *printer.Printer) error {
@@ -22,6 +25,10 @@ func (g *goGen) writeHeader(p *printer.Printer) error {
 
 func (g *goGen) writeImports(p *printer.Printer) {
 	var paths []string
+	if g.uses["context"] {
+		paths = append(paths, "context")
+	}
+
 	if g.uses["net/url"] {
 		paths = append(paths, "net/url")
 	}
@@ -38,12 +45,20 @@ func (g *goGen) writeImports(p *printer.Printer) {
 		paths = append(paths, "os")
 	}
 
+	if g.uses["os/exec"] {
+		paths = append(paths, "os/exec")
+	}
+
 	if g.uses["regexp"] {
 		paths = append(paths, "regexp")
 	}
 
 	if g.uses["strings"] {
 		paths = append(paths, "strings")
+	}
+
+	if g.uses["time"] {
+		paths = append(paths, "time")
 	}
 
 	if len(paths) == 0 {
@@ -102,7 +117,7 @@ func (g *goGen) writeSensitiveKeys(p *printer.Printer) {
 	p.Indent()
 
 	for _, f := range g.schema.Fields {
-		if f.Sensitive {
+		if f.Sensitive || len(f.SourceSpecs) > 0 {
 			p.Linef("%q: {},", f.Key)
 		}
 	}
@@ -145,6 +160,16 @@ func (g *goGen) writeLoaders(p *printer.Printer) error {
 	p.Line("}")
 	p.Dedent()
 	p.Line("}")
+
+	if len(g.providers) > 0 {
+		p.Line("if err := fetchAllSecrets(m); err != nil {")
+		p.Indent()
+		p.Line("var e Env")
+		p.Line("return e, err")
+		p.Dedent()
+		p.Line("}")
+	}
+
 	p.Line("return loadFromMap(m)")
 	p.Dedent()
 	p.Line("}")
@@ -195,4 +220,105 @@ func (g *goGen) writeRegexVars(p *printer.Printer) {
 		p.Linef("var %s = regexp.MustCompile(%q)", g.regexVar(f), f.Regex)
 		p.Blank()
 	}
+}
+
+func (g *goGen) writeSecretFetchers(p *printer.Printer) {
+	if len(g.providers) == 0 {
+		return
+	}
+
+	for _, pr := range providerOrder {
+		if !g.providers[pr] {
+			continue
+		}
+
+		if pr == spec.Provider1Password {
+			p.WriteRaw(onePasswordFetcherSource)
+			p.Blank()
+		}
+	}
+
+	g.writeFetchAllSecrets(p)
+}
+
+func (g *goGen) writeFetchAllSecrets(p *printer.Printer) {
+	p.Line("func fetchAllSecrets(m map[string]string) error {")
+	p.Indent()
+
+	for _, f := range g.schema.Fields {
+		if len(f.SourceSpecs) > 0 {
+			g.writeFetchBlock(p, f)
+		}
+	}
+
+	p.Line("return nil")
+	p.Dedent()
+	p.Line("}")
+	p.Blank()
+}
+
+func (g *goGen) writeFetchBlock(p *printer.Printer, f *parser.Field) {
+	key := strconv.Quote(f.Key)
+	p.Linef("{ // %s", f.Key)
+	p.Indent()
+
+	first := &f.SourceSpecs[0]
+
+	if !knownProvider(first.Provider) {
+		g.writeUnsupportedProvider(p, f, first.Provider)
+		return
+	}
+
+	p.Linef("v, err := %s", g.fetchCall(first))
+
+	for sp := first.Next; sp != nil; sp = sp.Next {
+		if !knownProvider(sp.Provider) {
+			g.writeUnsupportedProvider(p, f, sp.Provider)
+			return
+		}
+
+		p.Line("if err != nil {")
+		p.Indent()
+		p.Linef("v, err = %s", g.fetchCall(sp))
+		p.Dedent()
+		p.Line("}")
+	}
+
+	if f.Required {
+		p.Line("if err != nil {")
+		p.Indent()
+		p.Linef("return fmt.Errorf(%q, err)", "fetch "+f.Key+": %w")
+		p.Dedent()
+		p.Line("}")
+		p.Linef("m[%s] = v", key)
+	} else {
+		p.Line("if err == nil {")
+		p.Indent()
+		p.Linef("m[%s] = v", key)
+		p.Dedent()
+		p.Line("}")
+	}
+
+	p.Dedent()
+	p.Line("}")
+	p.Blank()
+}
+
+func (g *goGen) fetchCall(sp *spec.SourceSpec) string {
+	return fetcherFuncName(sp.Provider) + "(" + strings.Join(fetcherArgs(sp), ", ") + ")"
+}
+
+// writeUnsupportedProvider emits an immediate error for providers the generator does not know.
+func (g *goGen) writeUnsupportedProvider(p *printer.Printer, f *parser.Field, pr spec.SecretProvider) {
+	p.Linef("return fmt.Errorf(%q, %q)", "fetch "+f.Key+": unsupported secret provider %q", string(pr))
+	p.Dedent()
+	p.Line("}")
+	p.Blank()
+}
+
+// knownProvider reports whether the generator can emit a fetcher for the provider.
+func knownProvider(pr spec.SecretProvider) bool {
+	_, ok := spec.ParseSecretProvider(string(pr))
+
+	return ok
 }
